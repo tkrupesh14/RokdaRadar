@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { CAT_COLORS, CSR_CAMPAIGNS } from "@/lib/csrData";
-import { fmtINR } from "@/lib/format";
+import { CAT_COLORS, CSR_CAMPAIGNS, type CsrCampaign } from "@/lib/csrData";
+import { getAggregate } from "@/lib/api";
+import { fmtINR, paiseToRupees } from "@/lib/format";
 
 type TrustFilter = "all" | "high" | "mid" | "low";
 type AnomalyFilter = "all" | "flagged" | "clear";
@@ -20,8 +21,44 @@ export default function CsrDashboard() {
   const [anomalyFilter, setAnomalyFilter] = useState<AnomalyFilter>("all");
   const [reportOpen, setReportOpen] = useState(false);
 
+  // Overlays real raised/spent/anomaly data from the backend for any entry
+  // with a backendId (currently just Wayanad -- see lib/csrData.ts). org/
+  // region/category/trust have no backend equivalent yet and stay static.
+  // Falls back to the untouched mock row if the backend has no campaign
+  // there yet, which is expected until a real on-chain campaign is created.
+  const [campaigns, setCampaigns] = useState<CsrCampaign[]>(CSR_CAMPAIGNS);
+
+  useEffect(() => {
+    // Explicit undefined check: campaignId 0 is a valid real backend id
+    // (contract's campaignCount starts at 0) and a truthy check would wrongly
+    // skip it since 0 is falsy in JS.
+    const withBackendId = CSR_CAMPAIGNS.filter((c) => c.backendId !== undefined);
+    if (withBackendId.length === 0) return;
+
+    let cancelled = false;
+    Promise.all(withBackendId.map((c) => getAggregate(c.backendId!))).then((results) => {
+      if (cancelled) return;
+      setCampaigns((prev) =>
+        prev.map((c) => {
+          const idx = withBackendId.indexOf(c);
+          const aggregate = idx >= 0 ? results[idx] : null;
+          if (!aggregate) return c;
+          return {
+            ...c,
+            raised: paiseToRupees(aggregate.raisedPaise),
+            spent: paiseToRupees(aggregate.spentPaise),
+            anomaly: aggregate.anomalyCandidates.length > 0,
+          };
+        })
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const filtered = useMemo(() => {
-    return CSR_CAMPAIGNS.filter((c) => {
+    return campaigns.filter((c) => {
       if (search && !c.name.toLowerCase().includes(search.toLowerCase())) return false;
       if (region !== "all" && c.region !== region) return false;
       if (categoryFilter !== "all" && c.category !== categoryFilter) return false;
@@ -32,14 +69,14 @@ export default function CsrDashboard() {
       if (anomalyFilter === "clear" && c.anomaly) return false;
       return true;
     });
-  }, [search, region, categoryFilter, trustFilter, anomalyFilter]);
+  }, [campaigns, search, region, categoryFilter, trustFilter, anomalyFilter]);
 
   const regionOptions = useMemo(() => [...new Set(CSR_CAMPAIGNS.map((c) => c.region))], []);
   const categoryOptions = useMemo(() => [...new Set(CSR_CAMPAIGNS.map((c) => c.category))], []);
 
   const { donutGradient, categoryLegend } = useMemo(() => {
     const catTotals: Record<string, number> = {};
-    CSR_CAMPAIGNS.forEach((c) => {
+    campaigns.forEach((c) => {
       catTotals[c.category] = (catTotals[c.category] || 0) + c.spent;
     });
     const totalSpent = Object.values(catTotals).reduce((a, b) => a + b, 0);
@@ -55,18 +92,18 @@ export default function CsrDashboard() {
       return `${c.color} ${start}% ${acc}%`;
     });
     return { donutGradient: `conic-gradient(${parts.join(",")})`, categoryLegend: legend };
-  }, []);
+  }, [campaigns]);
 
   const regionBars = useMemo(() => {
     const regionTotals: Record<string, number> = {};
-    CSR_CAMPAIGNS.forEach((c) => {
+    campaigns.forEach((c) => {
       regionTotals[c.region] = (regionTotals[c.region] || 0) + c.raised;
     });
     const maxRegion = Math.max(...Object.values(regionTotals));
     return Object.entries(regionTotals)
       .sort((a, b) => b[1] - a[1])
       .map(([name, v]) => ({ name, amountDisplay: fmtINR(v), pct: Math.round((v / maxRegion) * 100) }));
-  }, []);
+  }, [campaigns]);
 
   const { trendPoints, trendDots } = useMemo(() => {
     const trendVals = [42, 55, 48, 63, 71, 86];
@@ -242,8 +279,8 @@ export default function CsrDashboard() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(240px,1fr))", gap: 14 }}>
           {filtered.map((c) => {
             const trustColor = c.trust >= 80 ? "var(--color-accent-2-700)" : c.trust >= 60 ? "var(--color-accent-700)" : "var(--color-accent-800)";
-            return (
-              <div key={c.name} className="card elev-sm" style={{ padding: 16, gap: 10 }}>
+            const cardBody = (
+              <>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                   <span className="card-kicker">{c.org}</span>
                   {c.anomaly && (
@@ -276,6 +313,15 @@ export default function CsrDashboard() {
                 <div className="card-meta" style={{ marginTop: 2 }}>
                   Trust score <b style={{ color: trustColor, marginLeft: 3 }}>{c.trust}</b>
                 </div>
+              </>
+            );
+            return c.slug ? (
+              <Link key={c.name} href={`/campaign/${c.slug}`} className="card elev-sm" style={{ padding: 16, gap: 10, color: "inherit", textDecoration: "none", cursor: "pointer" }}>
+                {cardBody}
+              </Link>
+            ) : (
+              <div key={c.name} className="card elev-sm" style={{ padding: 16, gap: 10 }}>
+                {cardBody}
               </div>
             );
           })}

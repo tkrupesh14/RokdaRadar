@@ -336,12 +336,8 @@ export default function Home() {
               <span className="tag tag-accent-2">Logistics</span>
               <span className="tag tag-outline">Admin</span>
             </div>
-            <Link
-              className="btn btn-ghost"
-              style={{ marginTop: 22, paddingLeft: 0 }}
-              href="/campaign/wayanad-landslide-relief-fund"
-            >
-              View a live campaign page →
+            <Link className="btn btn-ghost" style={{ marginTop: 22, paddingLeft: 0 }} href="/campaigns">
+              Browse all campaigns →
             </Link>
           </div>
           <figure

@@ -25,8 +25,8 @@ export default function Nav() {
       <Link href="/#how" style={{ color: "inherit", textDecoration: "none", fontSize: 14 }}>
         How it works
       </Link>
-      <Link href="/#live" style={{ color: "inherit", textDecoration: "none", fontSize: 14 }}>
-        Live now
+      <Link href="/campaigns" style={{ color: "inherit", textDecoration: "none", fontSize: 14 }}>
+        All campaigns
       </Link>
       <Link href="/#faq" style={{ color: "inherit", textDecoration: "none", fontSize: 14 }}>
         FAQ

@@ -31,10 +31,32 @@ function extractPayloadNumbers(value: unknown): number[] {
   return numbers;
 }
 
-const NUMBER_IN_TEXT_RE = /-?\d[\d,]*\.?\d*/g;
+// Hex-ish tokens (spendRef/txHash strings the model quotes in prose, e.g.
+// "0x62381717a1...") must be stripped *before* number-matching runs, not
+// after -- otherwise the number regex still grabs the leading all-digit
+// prefix of the hex string (e.g. "62381717") as if it were a standalone
+// figure. Requires at least one a-f letter so this never strips a genuine
+// decimal figure like "482000" (which happens to also be valid hex digits
+// but contains none of the distinguishing letters).
+const HEX_TOKEN_RE = /\b(?:0x)?(?=[0-9a-fA-F]*[a-fA-F])[0-9a-fA-F]{6,}\b/g;
 
-function numbersInText(text: string): number[] {
-  const matches = text.match(NUMBER_IN_TEXT_RE) ?? [];
+// ISO-ish dates ("2026-08-16", "2026-08") read as digit runs too -- their
+// individual components (year, month, day) are never payload numbers in
+// their own right, so they must be stripped before number-matching runs,
+// same reasoning as hex tokens above.
+const DATE_TOKEN_RE = /\b\d{4}-\d{2}(?:-\d{2})?\b/g;
+
+// No leading sign: every figure this domain ever reports (paise amounts,
+// percentages, hour counts) is non-negative, and allowing a leading "-"
+// caused hyphenated identifiers like disasterTag ("KL-WAYANAD-2026-07") or
+// ISO dates ("2026-08-16") to be misread as negative numbers (e.g. "-2026").
+const NUMBER_IN_TEXT_RE = /\d[\d,]*\.?\d*/g;
+
+function numbersInText(text: string, disasterTag: string): number[] {
+  const withoutDisasterTag = disasterTag ? text.split(disasterTag).join(" ") : text;
+  const withoutHexTokens = withoutDisasterTag.replace(HEX_TOKEN_RE, " ");
+  const withoutDates = withoutHexTokens.replace(DATE_TOKEN_RE, " ");
+  const matches = withoutDates.match(NUMBER_IN_TEXT_RE) ?? [];
   return matches.map((m) => Number(m.replace(/,/g, ""))).filter((n) => Number.isFinite(n));
 }
 
@@ -42,7 +64,7 @@ function numbersInText(text: string): number[] {
 // its numeric claims live inside string fields, not as typed JSON numbers.
 // Every string field is regex-scanned for embedded numeric literals, except
 // keys that are legitimately non-numeric identifiers/timestamps/refs.
-function extractReportNumbers(value: unknown, excludeKeys: Set<string>, keyHint?: string): number[] {
+function extractReportNumbers(value: unknown, excludeKeys: Set<string>, disasterTag: string, keyHint?: string): number[] {
   const numbers: number[] = [];
   const isExcluded = Boolean(keyHint && excludeKeys.has(keyHint));
 
@@ -52,18 +74,18 @@ function extractReportNumbers(value: unknown, excludeKeys: Set<string>, keyHint?
   }
 
   if (typeof value === "string") {
-    if (!isExcluded) numbers.push(...numbersInText(value));
+    if (!isExcluded) numbers.push(...numbersInText(value, disasterTag));
     return numbers;
   }
 
   if (Array.isArray(value)) {
-    for (const item of value) numbers.push(...extractReportNumbers(item, excludeKeys));
+    for (const item of value) numbers.push(...extractReportNumbers(item, excludeKeys, disasterTag));
     return numbers;
   }
 
   if (value && typeof value === "object") {
     for (const [key, v] of Object.entries(value)) {
-      numbers.push(...extractReportNumbers(v, excludeKeys, key));
+      numbers.push(...extractReportNumbers(v, excludeKeys, disasterTag, key));
     }
     return numbers;
   }
@@ -106,7 +128,11 @@ const REPORT_TEXT_EXCLUDE_KEYS = new Set(["ref", "spendRef", "generatedAt", "cat
 
 export function validateReport(report: Report, payload: CampaignAggregate): GuardrailResult {
   const payloadNumbers = extractPayloadNumbers(payload as unknown as Record<string, unknown>);
-  const reportNumbers = extractReportNumbers(report as unknown as Record<string, unknown>, REPORT_TEXT_EXCLUDE_KEYS);
+  const reportNumbers = extractReportNumbers(
+    report as unknown as Record<string, unknown>,
+    REPORT_TEXT_EXCLUDE_KEYS,
+    payload.disasterTag
+  );
 
   for (const n of reportNumbers) {
     if (!numbersMatch(n, payloadNumbers) && !isDerivedPercentage(n, payloadNumbers)) {

@@ -1,8 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { getFeed } from "@/lib/api";
+import { paiseToRupees } from "@/lib/format";
 
 const CATEGORY_NAMES = ["Food", "Water", "Medical", "Shelter", "Logistics", "Admin"];
+
+// Backend campaignIds -- see lib/campaigns.ts / lib/csrData.ts backendId.
+// The contract's campaignCount starts at 0, so the first campaign ever
+// created is id 0, not 1. "Record a spend" below stays a local-only demo:
+// submitting a real spend requires an operator wallet signature (POST
+// /api/campaigns/:id/spend, see backend/scripts/signOperatorRequest.ts),
+// which this console has no key to produce yet.
+const CAMPAIGN_BACKEND_IDS: Record<string, number> = { wayanad: 0, assam: 1, odisha: 2 };
 
 type Spend = {
   id: number;
@@ -46,6 +56,37 @@ export default function OperatorConsole() {
   const [spends, setSpends] = useState<Spend[]>(INITIAL_SPENDS);
   const [justSubmitted, setJustSubmitted] = useState<number | null>(null);
   const [showRejectToast, setShowRejectToast] = useState(false);
+
+  // Overlays real confirmed spends from the backend feed for campaigns that
+  // have a real on-chain campaignId (currently just wayanad). Falls back to
+  // (and merges alongside) the local demo list otherwise.
+  useEffect(() => {
+    const backendId = CAMPAIGN_BACKEND_IDS[campaign];
+    // Explicit undefined check: campaignId 0 (wayanad) is valid and falsy.
+    if (backendId === undefined) return;
+
+    let cancelled = false;
+    getFeed(backendId, 10).then((feed) => {
+      if (cancelled || !feed) return;
+      const realSpends: Spend[] = feed.items
+        .filter((item): item is Extract<typeof item, { type: "spend" }> => item.type === "spend")
+        .map((item) => ({
+          id: -1 * new Date(item.ts * 1000).getTime(), // negative to never collide with Date.now() ids from local demo submissions
+          vendor: item.memo || "On-chain spend",
+          category: item.category.charAt(0) + item.category.slice(1).toLowerCase(),
+          amount: paiseToRupees(item.amountPaise),
+          date: new Date(item.ts * 1000).toLocaleDateString("en-IN", { month: "short", day: "numeric" }),
+          status: "confirmed",
+          hash: item.txHash.length > 14 ? `${item.txHash.slice(0, 6)}...${item.txHash.slice(-4)}` : item.txHash,
+        }));
+      if (realSpends.length > 0) {
+        setSpends((prev) => [...realSpends, ...prev.filter((s) => s.id > 0)]);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [campaign]);
 
   const canSubmit = !!(vendor && Number(amount) > 0 && category && evidenceAttached);
 

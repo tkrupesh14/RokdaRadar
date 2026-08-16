@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { getDb } from "../db/client.js";
-import { isAiConfigured, isChainConfigured } from "../config/env.js";
+import { isAiConfigured, isChainConfigured, resolvedAiProvider } from "../config/env.js";
 
 export const healthRouter = Router();
 
@@ -27,6 +27,6 @@ healthRouter.get("/health", (_req, res) => {
     status: "ok",
     db: dbOk ? "ok" : "error",
     chain: isChainConfigured ? "configured" : "unconfigured",
-    ai: isAiConfigured ? "configured" : "unconfigured",
+    ai: isAiConfigured ? `configured (${resolvedAiProvider})` : "unconfigured",
   });
 });

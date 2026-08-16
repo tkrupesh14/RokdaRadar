@@ -15,9 +15,10 @@ Fill in `.env`:
 - `OPERATOR_PRIVATE_KEY` — a funded Monad testnet private key. Required to deploy the
   contract and to sign `attestSpend`/`createCampaign`/`attestDelivery` transactions.
   Also used as `ORACLE_PRIVATE_KEY` by default (one key plays both roles for MVP0).
-- `ANTHROPIC_API_KEY` — required for the AI report endpoints. Everything else in the API
-  works without it; `GET /api/campaigns/:id/report` returns `503 AI_SERVICE_UNAVAILABLE`
-  until it's set.
+- `GEMINI_API_KEY` (or `ANTHROPIC_API_KEY`) — one of these is required for the AI report
+  endpoints; `AI_PROVIDER` picks which (defaults to Gemini if both are set). Everything else
+  in the API works without it; `GET /api/campaigns/:id/report` returns `503
+  AI_SERVICE_UNAVAILABLE` until one is set.
 
 ## Running without any secrets
 
@@ -62,7 +63,7 @@ npx tsx scripts/simulateUpiWebhook.ts 1 50000
 - `contracts/` — standalone Hardhat project (`ReliefTraceIN.sol`, tests, deploy script)
 - `src/db/` — SQLite schema, migration, repositories
 - `src/indexer/` — event listener, idempotent handlers, deterministic aggregate + anomaly rules
-- `src/ai/` — prompt builder, Anthropic client, guardrail validation, report cache
+- `src/ai/` — prompt builder, Gemini/Anthropic clients (provider picked by `modelClient.ts`), guardrail validation, report cache
 - `src/routes/` — Express routes, one file per resource, annotated with swagger-jsdoc
 - `src/openapi/` — OpenAPI component schemas + swagger-jsdoc config, served at `/docs`
 - `test/` — vitest suites (no secrets required)

@@ -1,10 +1,10 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { env, isAiConfigured } from "../config/env.js";
+import { env } from "../config/env.js";
 
 let client: Anthropic | null = null;
 
 function getClient(): Anthropic {
-  if (!isAiConfigured) {
+  if (!env.ANTHROPIC_API_KEY) {
     throw new Error("ANTHROPIC_API_KEY is not configured");
   }
   if (!client) {

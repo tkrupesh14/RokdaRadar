@@ -1,6 +1,6 @@
 import { computeAggregate } from "../indexer/aggregate.js";
 import { buildSystemPrompt } from "./promptBuilder.js";
-import { callReportModel } from "./anthropicClient.js";
+import { callReportModel } from "./modelClient.js";
 import { reportSchema, type Report } from "./reportSchema.js";
 import { validateReport } from "./guardrail.js";
 import { getCachedReport, setCachedReport, canManualRefresh } from "./cache.js";
@@ -45,7 +45,7 @@ async function generateAndValidate(campaignId: number): Promise<Report> {
 }
 
 export async function getReport(campaignId: number): Promise<Report> {
-  if (!isAiConfigured) throw new AiServiceUnavailableError("ANTHROPIC_API_KEY not configured");
+  if (!isAiConfigured) throw new AiServiceUnavailableError("No AI provider configured (set GEMINI_API_KEY or ANTHROPIC_API_KEY)");
 
   const cached = getCachedReport(campaignId);
   if (cached) return cached;
@@ -56,7 +56,7 @@ export async function getReport(campaignId: number): Promise<Report> {
 }
 
 export async function refreshReport(campaignId: number): Promise<Report> {
-  if (!isAiConfigured) throw new AiServiceUnavailableError("ANTHROPIC_API_KEY not configured");
+  if (!isAiConfigured) throw new AiServiceUnavailableError("No AI provider configured (set GEMINI_API_KEY or ANTHROPIC_API_KEY)");
   if (!canManualRefresh(campaignId)) {
     throw new RefreshRateLimitedError("refresh is rate-limited to once per 30s per campaign");
   }

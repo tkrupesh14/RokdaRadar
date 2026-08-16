@@ -6,6 +6,7 @@ import TxModal from "@/components/TxModal";
 import ImagePlaceholder from "@/components/ImagePlaceholder";
 import { fmtINR } from "@/lib/format";
 import type { CampaignDetail, LedgerRow, RelatedCampaign } from "@/lib/campaigns";
+import type { ApiReport } from "@/lib/api";
 
 type ModalData = {
   date: string;
@@ -19,10 +20,12 @@ export default function CampaignClient({
   campaign,
   related,
   aiRecord,
+  report,
 }: {
   campaign: CampaignDetail;
   related: RelatedCampaign[];
   aiRecord: LedgerRow;
+  report?: ApiReport | null;
 }) {
   const [modalData, setModalData] = useState<ModalData | null>(null);
 
@@ -53,6 +56,9 @@ export default function CampaignClient({
         </Link>
         <Link href="/#how" style={{ color: "inherit", textDecoration: "none", fontSize: 14 }}>
           How it works
+        </Link>
+        <Link href="/campaigns" style={{ color: "inherit", textDecoration: "none", fontSize: 14 }}>
+          All campaigns
         </Link>
         <Link href="/#faq" style={{ color: "inherit", textDecoration: "none", fontSize: 14 }}>
           FAQ
@@ -199,31 +205,48 @@ export default function CampaignClient({
                 AI Report
               </h2>
               <div className="card elev-sm" style={{ padding: 24 }}>
-                <p style={{ fontFamily: "var(--font-heading)", fontWeight: 400, fontSize: 19, margin: "0 0 10px" }}>
-                  Funds are being spent as reported.
-                </p>
-                <p style={{ fontSize: 15, lineHeight: "27px", margin: 0, color: "color-mix(in srgb, var(--color-text) 82%, transparent)" }}>
-                  Over the past 7 days, <b>₹3,42,000</b> was disbursed across food, shelter and medical supplies.
-                  Every spend below carries vendor evidence and is confirmed on Monad{" "}
-                  <span
-                    onClick={() => openModal(aiRecord)}
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 4,
-                      fontSize: 13,
-                      color: "var(--color-accent-2-800)",
-                      background: "var(--color-accent-2-100)",
-                      borderRadius: 999,
-                      padding: "2px 10px",
-                      cursor: "pointer",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    ⧉ {aiRecord.hash}
-                  </span>
-                  .
-                </p>
+                {report ? (
+                  <>
+                    <p style={{ fontFamily: "var(--font-heading)", fontWeight: 400, fontSize: 19, margin: "0 0 10px" }}>
+                      {report.headline}
+                    </p>
+                    <p style={{ fontSize: 15, lineHeight: "27px", margin: "0 0 10px", color: "color-mix(in srgb, var(--color-text) 82%, transparent)" }}>
+                      {report.summary}
+                    </p>
+                    <div style={{ fontSize: 12, color: "color-mix(in srgb, var(--color-text) 55%, transparent)" }}>
+                      Every number above is checked against on-chain data before this report is shown (guardrail-verified) ·
+                      generated {new Date(report.generatedAt).toLocaleString("en-IN")}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p style={{ fontFamily: "var(--font-heading)", fontWeight: 400, fontSize: 19, margin: "0 0 10px" }}>
+                      Funds are being spent as reported.
+                    </p>
+                    <p style={{ fontSize: 15, lineHeight: "27px", margin: 0, color: "color-mix(in srgb, var(--color-text) 82%, transparent)" }}>
+                      Over the past 7 days, <b>₹3,42,000</b> was disbursed across food, shelter and medical supplies.
+                      Every spend below carries vendor evidence and is confirmed on Monad{" "}
+                      <span
+                        onClick={() => openModal(aiRecord)}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 4,
+                          fontSize: 13,
+                          color: "var(--color-accent-2-800)",
+                          background: "var(--color-accent-2-100)",
+                          borderRadius: 999,
+                          padding: "2px 10px",
+                          cursor: "pointer",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        ⧉ {aiRecord.hash}
+                      </span>
+                      .
+                    </p>
+                  </>
+                )}
               </div>
             </section>
 
@@ -341,12 +364,17 @@ export default function CampaignClient({
               </h2>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16 }}>
                 {related.map((r) => (
-                  <div key={r.slug} className="card elev-sm">
+                  <Link
+                    key={r.slug}
+                    href={`/campaign/${r.slug}`}
+                    className="card elev-sm"
+                    style={{ color: "inherit", textDecoration: "none", cursor: "pointer" }}
+                  >
                     <span className="card-kicker">{r.location}</span>
                     <h3 className="card-title">{r.name}</h3>
                     <p className="card-body">{r.blurb}</p>
                     <span className="card-meta">{fmtINR(r.raised)} raised</span>
-                  </div>
+                  </Link>
                 ))}
               </div>
             </section>

@@ -144,4 +144,31 @@ describe("guardrail: numbers must come from the payload", () => {
   it("isDerivedPercentage: rejects an unrelated number", () => {
     expect(isDerivedPercentage(12345, [1, 2, 3])).toBe(false);
   });
+
+  // Regression tests for two real bugs hit during a live demo run against
+  // Gemini: report prose that quotes the payload's own disasterTag or a
+  // spendRef hash was wrongly read as containing a hallucinated number.
+  it("does not misread a hyphenated disasterTag as a negative number", () => {
+    const report = baseReport({ summary: `This is the ${basePayload.disasterTag} campaign.` });
+    expect(validateReport(report, basePayload).valid).toBe(true);
+  });
+
+  it("does not misread an ISO date in prose as a number", () => {
+    const report = baseReport({ summary: "The campaign opened on 2026-08-16 and has been active since." });
+    expect(validateReport(report, basePayload).valid).toBe(true);
+  });
+
+  it("does not extract a fake number from a spendRef hash quoted in prose", () => {
+    const report = baseReport({
+      summary: "See spend reference 0x77c1a101eb446efe84eedcff856605d1c26a58661439a02958b50bbcf8c1 for details.",
+    });
+    expect(validateReport(report, basePayload).valid).toBe(true);
+  });
+
+  it("still rejects a genuinely hallucinated number placed next to a hex hash", () => {
+    const report = baseReport({
+      summary: "Spend 0x77c1a101eb446efe84eedcff856605d1c26a58661439a02958b50bbcf8c1 totalled 999999 paise.",
+    });
+    expect(validateReport(report, basePayload).valid).toBe(false);
+  });
 });

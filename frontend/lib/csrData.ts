@@ -7,6 +7,16 @@ export type CsrCampaign = {
   spent: number;
   trust: number;
   anomaly: boolean;
+  /**
+   * Backend campaignId, when a real on-chain campaign exists for this entry.
+   * See lib/mergeCampaign.ts for the same pattern on the campaign detail
+   * page. `trust` has no backend equivalent yet -- the published trust-score
+   * formula is LLD Section 8 (MVP2), not implemented in the MVP0 backend --
+   * so it always stays static even when raised/spent/anomaly overlay real data.
+   */
+  backendId?: number;
+  /** Slug in lib/campaigns.ts CAMPAIGNS, when this entry has a public detail page to link to. */
+  slug?: string;
 };
 
 export const CAT_COLORS: Record<string, string> = {
@@ -19,10 +29,10 @@ export const CAT_COLORS: Record<string, string> = {
 };
 
 export const CSR_CAMPAIGNS: CsrCampaign[] = [
-  { name: "Wayanad Landslide Relief Fund", org: "Sahayog Trust", region: "Kerala", category: "Shelter", raised: 482600, spent: 342000, trust: 92, anomaly: false },
-  { name: "Assam Flood Relief 2026", org: "Purbanchal Aid", region: "Assam", category: "Food", raised: 318000, spent: 210000, trust: 78, anomaly: false },
-  { name: "Odisha Cyclone Rebuild Fund", org: "Tarang Foundation", region: "Odisha", category: "Shelter", raised: 512000, spent: 398000, trust: 65, anomaly: true },
-  { name: "Himachal Landslide Emergency Fund", org: "Parvat Sewa Sangh", region: "Himachal Pradesh", category: "Medical", raised: 274000, spent: 190000, trust: 88, anomaly: false },
+  { name: "Wayanad Landslide Relief Fund", org: "Sahayog Trust", region: "Kerala", category: "Shelter", raised: 482600, spent: 342000, trust: 92, anomaly: false, backendId: 0, slug: "wayanad-landslide-relief-fund" },
+  { name: "Assam Flood Relief 2026", org: "Purbanchal Aid", region: "Assam", category: "Food", raised: 318000, spent: 210000, trust: 78, anomaly: false, backendId: 1, slug: "assam-flood-relief-2026" },
+  { name: "Odisha Cyclone Rebuild Fund", org: "Tarang Foundation", region: "Odisha", category: "Shelter", raised: 512000, spent: 398000, trust: 65, anomaly: true, backendId: 2, slug: "odisha-cyclone-rebuild-fund" },
+  { name: "Himachal Landslide Emergency Fund", org: "Parvat Sewa Sangh", region: "Himachal Pradesh", category: "Medical", raised: 274000, spent: 190000, trust: 88, anomaly: false, slug: "himachal-landslide-emergency-fund" },
   { name: "Bihar Flood Response", org: "Ganga Seva Samiti", region: "Bihar", category: "Water", raised: 396000, spent: 301000, trust: 54, anomaly: true },
   { name: "Tamil Nadu Cyclone Relief", org: "Kadal Nala Trust", region: "Tamil Nadu", category: "Logistics", raised: 244000, spent: 176000, trust: 81, anomaly: false },
   { name: "Uttarakhand Landslide Fund", org: "Himalaya Raksha", region: "Uttarakhand", category: "Shelter", raised: 205000, spent: 140000, trust: 70, anomaly: false },

@@ -15,12 +15,14 @@ dist/
 .env
 .env.*
 !.env.example
+!.env.local.example
 
 # logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+.dev-logs/
 
 # misc
 .DS_Store

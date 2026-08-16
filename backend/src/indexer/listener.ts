@@ -86,29 +86,54 @@ function toDeliveryAttested(log: ethers.EventLog): DeliveryAttestedEvent {
   };
 }
 
+// Monad testnet's public RPC caps eth_getLogs to a 100-block range per call
+// (confirmed directly: "eth_getLogs is limited to a 100 range"), far tighter
+// than most EVM RPCs -- so any catch-up range must be paged in windows this
+// size, never queried in one shot.
+const LOG_QUERY_WINDOW = 100;
+
 async function backfill(contract: ethers.Contract, provider: ethers.JsonRpcProvider): Promise<number> {
   const currentBlock = await provider.getBlockNumber();
-  const fromBlock = (getLastProcessedBlock() ?? -1) + 1;
+  const lastProcessed = getLastProcessedBlock();
 
-  if (fromBlock <= currentBlock) {
-    const logs = await contract.queryFilter("*", fromBlock, currentBlock);
-    // Apply in the exact order they were emitted so a spend's SpendAttested
-    // handler (which recomputes anomalies) always sees consistent prior state.
-    const sorted = [...logs].sort((a, b) => a.blockNumber - b.blockNumber || a.index - b.index);
-    for (const log of sorted) {
-      applyLog(contract, log as ethers.EventLog);
-    }
+  // Fresh indexer state (no prior run): start from the chain head rather
+  // than genesis. Scanning a contract's entire pre-existing history in
+  // 100-block windows would be thousands of RPC calls for no reason at
+  // MVP0 -- catch-up only matters for gaps since the indexer's own last run.
+  const fromBlock = lastProcessed === null ? currentBlock : lastProcessed + 1;
+
+  const allLogs: ethers.EventLog[] = [];
+  for (let windowStart = fromBlock; windowStart <= currentBlock; windowStart += LOG_QUERY_WINDOW) {
+    const windowEnd = Math.min(windowStart + LOG_QUERY_WINDOW - 1, currentBlock);
+    const logs = await contract.queryFilter("*", windowStart, windowEnd);
+    allLogs.push(...(logs as ethers.EventLog[]));
   }
+
+  // Apply in the exact order they were emitted so a spend's SpendAttested
+  // handler (which recomputes anomalies) always sees consistent prior state.
+  const sorted = allLogs.sort((a, b) => a.blockNumber - b.blockNumber || a.index - b.index);
+  for (const log of sorted) {
+    applyLog(contract, log);
+  }
+
   setLastProcessedBlock(currentBlock);
   return currentBlock;
 }
 
 function applyLog(contract: ethers.Contract, log: ethers.EventLog): void {
-  const parsed = contract.interface.parseLog({ topics: log.topics as string[], data: log.data });
-  if (!parsed) return;
-  const enriched = Object.assign(Object.create(log), { args: parsed.args });
+  // queryFilter("*", ...) already returns fully-typed EventLog instances with
+  // `.args` populated by ethers (matched against the contract's interface).
+  // `args` is a read-only property there, so it can't be force-reassigned
+  // onto the original object (Object.assign onto it throws in strict mode);
+  // instead build a minimal plain object with only the 3 fields the
+  // to*Event() converters below actually read. Falls back to manual parsing
+  // only for the rare case a raw Log without pre-matched args is passed in.
+  const args = log.args ?? contract.interface.parseLog({ topics: log.topics as string[], data: log.data })?.args;
+  if (!args) return;
+  const parsedName = log.fragment?.name;
+  const enriched = { transactionHash: log.transactionHash, index: log.index, args } as unknown as ethers.EventLog;
 
-  switch (parsed.name) {
+  switch (parsedName) {
     case "CampaignCreated":
       onCampaignCreated(toCampaignCreated(enriched));
       break;
@@ -133,10 +158,21 @@ export async function startIndexer(): Promise<void> {
   const caughtUpToBlock = await backfill(contract, provider);
   console.log(`[indexer] backfill complete up to block ${caughtUpToBlock}`);
 
-  contract.on("CampaignCreated", (...args) => applyLog(contract, args[args.length - 1] as ethers.EventLog));
-  contract.on("DonationAttested", (...args) => applyLog(contract, args[args.length - 1] as ethers.EventLog));
-  contract.on("SpendAttested", (...args) => applyLog(contract, args[args.length - 1] as ethers.EventLog));
-  contract.on("DeliveryAttested", (...args) => applyLog(contract, args[args.length - 1] as ethers.EventLog));
+  // Polling, not contract.on()/eth_newFilter: Monad testnet's public RPC
+  // returns "Method not found" for eth_newFilter (confirmed directly),
+  // which is what ethers' filter-based subscriptions rely on over HTTP.
+  // Many public RPC endpoints disable stateful filters regardless of chain,
+  // so polling is also the more portable choice generally. backfill() is
+  // already chunked to the RPC's 100-block eth_getLogs cap and idempotent,
+  // so re-running it on an interval is a correct, if slightly less instant,
+  // substitute for push subscriptions -- comfortably inside the <3s
+  // indexer-lag NFT (HLD Section 8) at a 2s poll interval.
+  const POLL_INTERVAL_MS = 2000;
+  setInterval(() => {
+    backfill(contract, provider).catch((err) => {
+      console.error("[indexer] poll error", err);
+    });
+  }, POLL_INTERVAL_MS);
 
-  console.log("[indexer] subscribed to live events");
+  console.log(`[indexer] polling for new events every ${POLL_INTERVAL_MS}ms`);
 }
