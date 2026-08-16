@@ -43,43 +43,53 @@ const donateSchema = z.object({
  *       422:
  *         description: Contract reverted
  */
-donateRouter.post("/api/campaigns/:id/donate", async (req, res) => {
-  const id = Number(req.params.id);
-  const campaign = getCampaign(id);
-  if (!campaign) {
-    res.status(404).json({ error: "NOT_FOUND", detail: `campaign ${id} not found` });
-    return;
-  }
-
-  const body = donateSchema.parse(req.body);
-  const paymentId = `pay_${crypto.randomBytes(8).toString("hex")}`;
-  const utr = crypto.randomInt(100000000000, 999999999999).toString();
-
-  // Raw UTR and VPA are hashed immediately and never stored/logged (same
-  // anonymization as the real webhook handler in routes/webhooks.ts).
-  const utrHash = ethers.keccak256(ethers.toUtf8Bytes(utr));
-  const donorRef = ethers.keccak256(ethers.toUtf8Bytes(`${body.donorVpa ?? "unknown"}:${env.WEBHOOK_HMAC_SECRET}`));
-
-  const contract = getOracleContract();
-  let tx;
+donateRouter.post("/api/campaigns/:id/donate", async (req, res, next) => {
   try {
-    tx = await contract.attestDonation(id, utrHash, donorRef, body.amountPaise);
-  } catch (err: any) {
-    res.status(422).json({
-      error: "The contract rejected this transaction.",
-      code: "CONTRACT_REVERT",
-      detail: err?.shortMessage ?? err?.message ?? "unknown revert",
-    });
-    return;
-  }
-  const receipt = await tx.wait();
+    const id = Number(req.params.id);
+    const campaign = getCampaign(id);
+    if (!campaign) {
+      res.status(404).json({ error: "NOT_FOUND", detail: `campaign ${id} not found` });
+      return;
+    }
 
-  res.status(201).json({
-    paymentId,
-    utr,
-    amountPaise: body.amountPaise,
-    campaignId: id,
-    status: "confirmed",
-    txHash: receipt.hash,
-  });
+    const body = donateSchema.parse(req.body);
+    const paymentId = `pay_${crypto.randomBytes(8).toString("hex")}`;
+    const utr = crypto.randomInt(100000000000, 999999999999).toString();
+
+    // Raw UTR and VPA are hashed immediately and never stored/logged (same
+    // anonymization as the real webhook handler in routes/webhooks.ts).
+    const utrHash = ethers.keccak256(ethers.toUtf8Bytes(utr));
+    const donorRef = ethers.keccak256(ethers.toUtf8Bytes(`${body.donorVpa ?? "unknown"}:${env.WEBHOOK_HMAC_SECRET}`));
+
+    // getOracleContract() throws synchronously (e.g. contract artifact
+    // missing, CONTRACT_ADDRESS unset) -- must stay inside this try/catch.
+    // A throw here in an unguarded async handler becomes an unhandled
+    // promise rejection, and Node terminates the whole process for that by
+    // default, which is what was crash-looping the service (LLD 3.4 assumes
+    // this handler never lets an error escape uncaught).
+    const contract = getOracleContract();
+    let tx;
+    try {
+      tx = await contract.attestDonation(id, utrHash, donorRef, body.amountPaise);
+    } catch (err: any) {
+      res.status(422).json({
+        error: "The contract rejected this transaction.",
+        code: "CONTRACT_REVERT",
+        detail: err?.shortMessage ?? err?.message ?? "unknown revert",
+      });
+      return;
+    }
+    const receipt = await tx.wait();
+
+    res.status(201).json({
+      paymentId,
+      utr,
+      amountPaise: body.amountPaise,
+      campaignId: id,
+      status: "confirmed",
+      txHash: receipt.hash,
+    });
+  } catch (err) {
+    next(err);
+  }
 });
