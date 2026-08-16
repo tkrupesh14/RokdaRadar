@@ -3,6 +3,9 @@
 A transparency layer for disaster relief donations: money moves via UPI as it always has, and only the
 proof — every receipt, every rupee spent — is recorded on Monad. No cryptocurrency changes hands.
 
+- **Live app:** [https://rokdaradar.krpex.in/](https://rokdaradar.krpex.in/)
+- **Contract (Monad testnet):** [`0x31a10B1866f03B6A7e3497D7D5B71a97b7C64a3D`](https://testnet.monadscan.com/address/0x31a10B1866f03B6A7e3497D7D5B71a97b7C64a3D)
+
 The repo has two apps plus the on-chain contract:
 
 - `backend/` — Express + TypeScript API, SQLite indexer, and Hardhat/Solidity contract (see
