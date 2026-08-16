@@ -1,4 +1,4 @@
-# ReliefTrace
+# RokdaRadar
 
 A transparency layer for disaster relief donations: money moves via UPI as it always has, and only the
 proof — every receipt, every rupee spent — is recorded on Monad. No cryptocurrency changes hands.
