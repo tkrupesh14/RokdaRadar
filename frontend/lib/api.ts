@@ -97,3 +97,33 @@ export function getReport(id: number) {
 export function listCampaigns() {
   return safeFetch<{ campaigns: ApiCampaign[] }>(`/api/campaigns`);
 }
+
+export type ApiDonateResponse = {
+  paymentId: string;
+  utr: string;
+  amountPaise: number;
+  campaignId: number;
+  status: "confirmed";
+  txHash: string;
+};
+
+export type DonateResult = { ok: true; data: ApiDonateResponse } | { ok: false; error: string };
+
+// Unlike the read helpers above, this can't silently return null on failure --
+// the donate flow needs to tell the donor whether their money actually moved.
+export async function donateToCampaign(id: number, amountPaise: number, donorVpa?: string): Promise<DonateResult> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/campaigns/${id}/donate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ amountPaise, donorVpa }),
+    });
+    const body = await res.json();
+    if (!res.ok) {
+      return { ok: false, error: body?.detail || body?.error || `Donation failed (${res.status})` };
+    }
+    return { ok: true, data: body as ApiDonateResponse };
+  } catch {
+    return { ok: false, error: "Could not reach the backend. Is it running?" };
+  }
+}

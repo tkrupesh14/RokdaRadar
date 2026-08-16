@@ -20,6 +20,9 @@ export default function Nav() {
       <Link href="/campaigns" style={{ color: "inherit", textDecoration: "none", fontSize: 14 }}>
         All campaigns
       </Link>
+      <Link href="/arena" style={{ color: "inherit", textDecoration: "none", fontSize: 14 }}>
+        Arena
+      </Link>
       <Link href="/#faq" style={{ color: "inherit", textDecoration: "none", fontSize: 14 }}>
         FAQ
       </Link>

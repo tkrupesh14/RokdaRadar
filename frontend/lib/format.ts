@@ -11,3 +11,14 @@ export function fmtINR(n: number): string {
 export function paiseToRupees(paise: number): number {
   return paise / 100;
 }
+
+export function shortHash(hash: string): string {
+  return hash.length > 14 ? `${hash.slice(0, 6)}...${hash.slice(-4)}` : hash;
+}
+
+const EXPLORER_TX_BASE_URL =
+  process.env.NEXT_PUBLIC_MONAD_EXPLORER_TX_BASE_URL || "https://testnet.monadscan.com/tx";
+
+export function explorerTxUrl(hash: string): string {
+  return `${EXPLORER_TX_BASE_URL}/${hash}`;
+}

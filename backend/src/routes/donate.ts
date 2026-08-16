@@ -1,7 +1,10 @@
 import { Router } from "express";
 import crypto from "node:crypto";
 import { z } from "zod";
+import { ethers } from "ethers";
 import { getCampaign } from "../db/repositories/campaignsRepo.js";
+import { getOracleContract } from "../chain/contractClient.js";
+import { env } from "../config/env.js";
 
 export const donateRouter = Router();
 
@@ -14,8 +17,8 @@ const donateSchema = z.object({
  * @openapi
  * /api/campaigns/{id}/donate:
  *   post:
- *     summary: Initiate a mock UPI payment
- *     description: Returns a fake payment reference. Real PSP integration is MVP1 (out of scope). Confirm with POST /api/webhooks/upi via scripts/simulateUpiWebhook.ts.
+ *     summary: Make a mock UPI donation, confirmed on-chain immediately
+ *     description: There is no real PSP in MVP0 (that's MVP1 scope), so this endpoint stands in for the PSP itself -- it generates a mock payment/UTR reference and, in the same request, calls attestDonation on-chain from the backend's oracle wallet exactly as the real POST /api/webhooks/upi handler would. The indexer then picks up the emitted event and the amount shows up in the campaign's aggregate/feed within a couple of seconds.
  *     tags: [Donations]
  *     parameters:
  *       - in: path
@@ -34,11 +37,13 @@ const donateSchema = z.object({
  *               donorVpa: { type: string }
  *     responses:
  *       201:
- *         description: Mock payment initiated
+ *         description: Donation confirmed on-chain
  *       404:
  *         description: Campaign not found
+ *       422:
+ *         description: Contract reverted
  */
-donateRouter.post("/api/campaigns/:id/donate", (req, res) => {
+donateRouter.post("/api/campaigns/:id/donate", async (req, res) => {
   const id = Number(req.params.id);
   const campaign = getCampaign(id);
   if (!campaign) {
@@ -50,12 +55,31 @@ donateRouter.post("/api/campaigns/:id/donate", (req, res) => {
   const paymentId = `pay_${crypto.randomBytes(8).toString("hex")}`;
   const utr = crypto.randomInt(100000000000, 999999999999).toString();
 
+  // Raw UTR and VPA are hashed immediately and never stored/logged (same
+  // anonymization as the real webhook handler in routes/webhooks.ts).
+  const utrHash = ethers.keccak256(ethers.toUtf8Bytes(utr));
+  const donorRef = ethers.keccak256(ethers.toUtf8Bytes(`${body.donorVpa ?? "unknown"}:${env.WEBHOOK_HMAC_SECRET}`));
+
+  const contract = getOracleContract();
+  let tx;
+  try {
+    tx = await contract.attestDonation(id, utrHash, donorRef, body.amountPaise);
+  } catch (err: any) {
+    res.status(422).json({
+      error: "The contract rejected this transaction.",
+      code: "CONTRACT_REVERT",
+      detail: err?.shortMessage ?? err?.message ?? "unknown revert",
+    });
+    return;
+  }
+  const receipt = await tx.wait();
+
   res.status(201).json({
     paymentId,
     utr,
     amountPaise: body.amountPaise,
     campaignId: id,
-    status: "pending_confirmation",
-    note: "This is a mock UPI initiation. Confirm it via POST /api/webhooks/upi (see scripts/simulateUpiWebhook.ts).",
+    status: "confirmed",
+    txHash: receipt.hash,
   });
 });

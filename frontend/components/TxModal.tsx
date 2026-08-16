@@ -4,9 +4,11 @@ type TxModalProps = {
   title?: string;
   rows: { label: string; value: string }[];
   onClose: () => void;
+  /** Real Monad explorer URL for this tx, when known. Falls back to a no-op link otherwise. */
+  explorerUrl?: string;
 };
 
-export default function TxModal({ title = "Transaction proof", rows, onClose }: TxModalProps) {
+export default function TxModal({ title = "Transaction proof", rows, onClose, explorerUrl }: TxModalProps) {
   return (
     <div
       className="dialog-backdrop"
@@ -26,9 +28,15 @@ export default function TxModal({ title = "Transaction proof", rows, onClose }: 
           <button type="button" className="btn btn-secondary" onClick={onClose}>
             Close
           </button>
-          <a className="btn btn-primary" href="#" onClick={(e) => { e.preventDefault(); onClose(); }}>
-            View on Monad Explorer ↗
-          </a>
+          {explorerUrl ? (
+            <a className="btn btn-primary" href={explorerUrl} target="_blank" rel="noopener noreferrer">
+              View on Monad Explorer ↗
+            </a>
+          ) : (
+            <a className="btn btn-primary" href="#" onClick={(e) => { e.preventDefault(); onClose(); }}>
+              View on Monad Explorer ↗
+            </a>
+          )}
         </div>
       </div>
     </div>

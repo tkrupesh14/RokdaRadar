@@ -4,11 +4,11 @@ import { useState } from "react";
 import Link from "next/link";
 import TxModal from "@/components/TxModal";
 import Logo from "@/components/Logo";
-import { fmtINR } from "@/lib/format";
+import { donateToCampaign } from "@/lib/api";
+import { explorerTxUrl, fmtINR, shortHash } from "@/lib/format";
 import type { CampaignDetail } from "@/lib/campaigns";
 
 const CHIP_AMOUNTS = [100, 500, 2000, 5000];
-const TX_HASH = "0x9f21...c084";
 
 type Beat = "amount" | "payment" | "receipt";
 
@@ -18,6 +18,8 @@ export default function DonateClient({ campaign }: { campaign: CampaignDetail })
   const [beat, setBeat] = useState<Beat>("amount");
   const [isPaying, setIsPaying] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
+  const [txHash, setTxHash] = useState<string | null>(null);
+  const [payError, setPayError] = useState<string | null>(null);
 
   const amount = selectedAmount || Number(customAmount) || 0;
   const amountDisplay = fmtINR(amount);
@@ -31,12 +33,22 @@ export default function DonateClient({ campaign }: { campaign: CampaignDetail })
     if (amount > 0) setBeat("payment");
   };
 
-  const onPay = () => {
+  const onPay = async () => {
+    if (campaign.backendId === undefined) {
+      setPayError("This campaign doesn't have a live on-chain campaign yet, so it can't record a real donation.");
+      return;
+    }
     setIsPaying(true);
-    setTimeout(() => {
-      setIsPaying(false);
-      setBeat("receipt");
-    }, 900);
+    setPayError(null);
+    const amountPaise = Math.round(amount * 100);
+    const result = await donateToCampaign(campaign.backendId, amountPaise);
+    setIsPaying(false);
+    if (!result.ok) {
+      setPayError(result.error);
+      return;
+    }
+    setTxHash(result.data.txHash);
+    setBeat("receipt");
   };
 
   return (
@@ -177,14 +189,21 @@ export default function DonateClient({ campaign }: { campaign: CampaignDetail })
                   }}
                 />
                 <span style={{ fontSize: 14, color: "color-mix(in srgb, var(--color-text) 75%, transparent)" }}>
-                  Waiting for confirmation…
+                  Confirming on Monad…
                 </span>
               </div>
             )}
             {beat === "payment" && !isPaying && (
-              <button type="button" className="btn btn-primary btn-block" onClick={onPay}>
-                I&rsquo;ve completed the payment
-              </button>
+              <>
+                {payError && (
+                  <p style={{ fontSize: 13, color: "var(--color-accent-800)", margin: "0 0 12px", textAlign: "center" }}>
+                    {payError}
+                  </p>
+                )}
+                <button type="button" className="btn btn-primary btn-block" onClick={onPay}>
+                  I&rsquo;ve completed the payment
+                </button>
+              </>
             )}
           </section>
         )}
@@ -210,26 +229,28 @@ export default function DonateClient({ campaign }: { campaign: CampaignDetail })
             </div>
             <div style={{ fontFamily: "var(--font-heading)", fontWeight: 400, fontSize: 32, marginBottom: 6 }}>{amountDisplay}</div>
             <div style={{ fontSize: 13, color: "color-mix(in srgb, var(--color-text) 65%, transparent)", marginBottom: 18 }}>
-              Confirmed in under a second
+              Confirmed on Monad
             </div>
-            <div style={{ display: "flex", justifyContent: "center", marginBottom: 24 }}>
-              <span
-                onClick={() => setModalOpen(true)}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 5,
-                  fontSize: 13,
-                  color: "var(--color-accent-2-800)",
-                  background: "var(--color-accent-2-100)",
-                  borderRadius: 999,
-                  padding: "5px 12px",
-                  cursor: "pointer",
-                }}
-              >
-                ⧉ {TX_HASH}
-              </span>
-            </div>
+            {txHash && (
+              <div style={{ display: "flex", justifyContent: "center", marginBottom: 24 }}>
+                <span
+                  onClick={() => setModalOpen(true)}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 5,
+                    fontSize: 13,
+                    color: "var(--color-accent-2-800)",
+                    background: "var(--color-accent-2-100)",
+                    borderRadius: 999,
+                    padding: "5px 12px",
+                    cursor: "pointer",
+                  }}
+                >
+                  ⧉ {shortHash(txHash)}
+                </span>
+              </div>
+            )}
             <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 320, margin: "0 auto" }}>
               <button type="button" className="btn btn-secondary btn-block">
                 Download 80G receipt
@@ -242,12 +263,13 @@ export default function DonateClient({ campaign }: { campaign: CampaignDetail })
         )}
       </div>
 
-      {modalOpen && (
+      {modalOpen && txHash && (
         <TxModal
           onClose={() => setModalOpen(false)}
+          explorerUrl={explorerTxUrl(txHash)}
           rows={[
             { label: "Amount", value: amountDisplay },
-            { label: "Hash", value: TX_HASH },
+            { label: "Hash", value: shortHash(txHash) },
             { label: "Donor", value: "You" },
             { label: "Campaign", value: campaign.name },
           ]}
