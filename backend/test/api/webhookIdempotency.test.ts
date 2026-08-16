@@ -2,9 +2,12 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import crypto from "node:crypto";
 import request from "supertest";
 import { freshTestDb } from "../testDb.js";
-
-const WEBHOOK_SECRET = "test-webhook-secret";
-process.env.WEBHOOK_HMAC_SECRET = WEBHOOK_SECRET;
+// freshTestDb transitively imports config/env.js (via db/client.ts), and ES
+// module imports resolve before this file's own top-level body runs -- so
+// signing must read whatever secret env.ts actually loaded (the default from
+// .env.example) rather than assuming a process.env override "wins" a race
+// against static import resolution.
+import { env } from "../../src/config/env.js";
 
 let attestDonationCalls = 0;
 
@@ -22,7 +25,7 @@ vi.mock("../../src/chain/contractClient.js", () => ({
 }));
 
 function sign(rawBody: Buffer): string {
-  return crypto.createHmac("sha256", WEBHOOK_SECRET).update(rawBody).digest("hex");
+  return crypto.createHmac("sha256", env.WEBHOOK_HMAC_SECRET).update(rawBody).digest("hex");
 }
 
 function buildPayload(paymentId: string, campaignId: number, amount = 50000) {
@@ -60,7 +63,7 @@ describe("POST /api/webhooks/upi idempotency", () => {
       .post("/api/webhooks/upi")
       .set("Content-Type", "application/json")
       .set("X-Webhook-Signature", "not-a-valid-signature")
-      .send(rawBody);
+      .send(rawBody.toString("utf8"));
 
     expect(res.status).toBe(401);
   });
@@ -70,7 +73,7 @@ describe("POST /api/webhooks/upi idempotency", () => {
     const app = createApp();
     const rawBody = Buffer.from(JSON.stringify(buildPayload("pay_2", 1)));
 
-    const res = await request(app).post("/api/webhooks/upi").set("Content-Type", "application/json").send(rawBody);
+    const res = await request(app).post("/api/webhooks/upi").set("Content-Type", "application/json").send(rawBody.toString("utf8"));
 
     expect(res.status).toBe(401);
   });
@@ -85,7 +88,7 @@ describe("POST /api/webhooks/upi idempotency", () => {
       .post("/api/webhooks/upi")
       .set("Content-Type", "application/json")
       .set("X-Webhook-Signature", signature)
-      .send(rawBody);
+      .send(rawBody.toString("utf8"));
     expect(first.status).toBe(200);
     expect(first.body.status).toBe("confirmed");
 
@@ -93,7 +96,7 @@ describe("POST /api/webhooks/upi idempotency", () => {
       .post("/api/webhooks/upi")
       .set("Content-Type", "application/json")
       .set("X-Webhook-Signature", signature)
-      .send(rawBody);
+      .send(rawBody.toString("utf8"));
     expect(second.status).toBe(200);
     expect(second.body.status).toBe("already_processed");
 

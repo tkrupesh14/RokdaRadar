@@ -1,14 +1,14 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import os from "node:os";
-import path from "node:path";
 import { ethers } from "ethers";
 import request from "supertest";
 import { freshTestDb } from "../testDb.js";
 import { buildCanonicalMessage } from "../../src/auth/operatorSignature.js";
 
-process.env.EVIDENCE_DIR = path.join(os.tmpdir(), `relieftrace-test-evidence-${process.pid}-${Date.now()}`);
+// EVIDENCE_DIR is redirected to a tmp dir via vitest.config.ts's test.env
+// (not here -- see that file's comment for why a per-file override can't
+// win the race against config/env.ts's own module-load-time zod parse).
 
-const operatorWallet = new ethers.Wallet("0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690");
+const operatorWallet = ethers.Wallet.createRandom();
 
 let attestSpendShouldRevert = false;
 

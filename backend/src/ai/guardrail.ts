@@ -8,22 +8,62 @@ import type { Report } from "./reportSchema.js";
 
 const NUMBER_TOLERANCE = 1e-6;
 
-function extractAllNumbers(value: unknown, excludeKeys: Set<string> = new Set(), keyHint?: string): number[] {
+// The payload is structured JSON: every figure that matters is already a
+// numeric field, so this only needs to walk actual `number` values.
+function extractPayloadNumbers(value: unknown): number[] {
   const numbers: number[] = [];
 
   if (typeof value === "number" && Number.isFinite(value)) {
-    if (!keyHint || !excludeKeys.has(keyHint)) numbers.push(value);
+    numbers.push(value);
     return numbers;
   }
 
   if (Array.isArray(value)) {
-    for (const item of value) numbers.push(...extractAllNumbers(item, excludeKeys));
+    for (const item of value) numbers.push(...extractPayloadNumbers(item));
+    return numbers;
+  }
+
+  if (value && typeof value === "object") {
+    for (const v of Object.values(value)) numbers.push(...extractPayloadNumbers(v));
+    return numbers;
+  }
+
+  return numbers;
+}
+
+const NUMBER_IN_TEXT_RE = /-?\d[\d,]*\.?\d*/g;
+
+function numbersInText(text: string): number[] {
+  const matches = text.match(NUMBER_IN_TEXT_RE) ?? [];
+  return matches.map((m) => Number(m.replace(/,/g, ""))).filter((n) => Number.isFinite(n));
+}
+
+// The model's report is natural-language prose ("...spent 96.8% of...") --
+// its numeric claims live inside string fields, not as typed JSON numbers.
+// Every string field is regex-scanned for embedded numeric literals, except
+// keys that are legitimately non-numeric identifiers/timestamps/refs.
+function extractReportNumbers(value: unknown, excludeKeys: Set<string>, keyHint?: string): number[] {
+  const numbers: number[] = [];
+  const isExcluded = Boolean(keyHint && excludeKeys.has(keyHint));
+
+  if (typeof value === "number" && Number.isFinite(value)) {
+    if (!isExcluded) numbers.push(value);
+    return numbers;
+  }
+
+  if (typeof value === "string") {
+    if (!isExcluded) numbers.push(...numbersInText(value));
+    return numbers;
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value) numbers.push(...extractReportNumbers(item, excludeKeys));
     return numbers;
   }
 
   if (value && typeof value === "object") {
     for (const [key, v] of Object.entries(value)) {
-      numbers.push(...extractAllNumbers(v, excludeKeys, key));
+      numbers.push(...extractReportNumbers(v, excludeKeys, key));
     }
     return numbers;
   }
@@ -33,16 +73,24 @@ function extractAllNumbers(value: unknown, excludeKeys: Set<string> = new Set(),
 
 // Allows simple, auditable derived values (e.g. a percentage computed from
 // two payload numbers) -- per LLD 5.3, this is a temporary MVP0 allowance to
-// tighten later, not a permanent escape hatch. Checks: n is close to
-// a/b*100 for some pair of payload numbers, or a-b, or a+b, for any pair.
+// tighten later, not a permanent escape hatch.
+//
+// Deliberately narrow: only a genuine ratio*100 ("what % is a of b") gets a
+// rounding tolerance, since the model may report it to 1 decimal place.
+// a-b/a+b are checked with an exact match (no tolerance) -- they're integer
+// arithmetic (e.g. unspentPaise = raisedPaise - spentPaise) that shouldn't
+// need "close enough", and loosening that tolerance let coincidental sums of
+// two unrelated payload numbers (e.g. spentPaise + medianDonationPaise)
+// slip a hallucinated figure through.
+const PERCENTAGE_ROUNDING_TOLERANCE = 0.15;
+
 export function isDerivedPercentage(n: number, payloadNumbers: number[]): boolean {
   for (const a of payloadNumbers) {
     for (const b of payloadNumbers) {
       if (b === 0) continue;
-      const candidates = [(a / b) * 100, a - b, a + b];
-      if (candidates.some((c) => Math.abs(c - n) < Math.max(NUMBER_TOLERANCE, Math.abs(n) * 0.005))) {
-        return true;
-      }
+      if (Math.abs((a / b) * 100 - n) < PERCENTAGE_ROUNDING_TOLERANCE) return true;
+      if (Math.abs(a - b - n) < NUMBER_TOLERANCE) return true;
+      if (Math.abs(a + b - n) < NUMBER_TOLERANCE) return true;
     }
   }
   return false;
@@ -54,9 +102,11 @@ function numbersMatch(n: number, payloadNumbers: number[]): boolean {
 
 export type GuardrailResult = { valid: true } | { valid: false; reason: string };
 
+const REPORT_TEXT_EXCLUDE_KEYS = new Set(["ref", "spendRef", "generatedAt", "category", "severity", "verdict"]);
+
 export function validateReport(report: Report, payload: CampaignAggregate): GuardrailResult {
-  const payloadNumbers = extractAllNumbers(payload as unknown as Record<string, unknown>);
-  const reportNumbers = extractAllNumbers(report as unknown as Record<string, unknown>, new Set(["ref", "spendRef"]));
+  const payloadNumbers = extractPayloadNumbers(payload as unknown as Record<string, unknown>);
+  const reportNumbers = extractReportNumbers(report as unknown as Record<string, unknown>, REPORT_TEXT_EXCLUDE_KEYS);
 
   for (const n of reportNumbers) {
     if (!numbersMatch(n, payloadNumbers) && !isDerivedPercentage(n, payloadNumbers)) {

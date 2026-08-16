@@ -14,7 +14,13 @@
       "Bash(npm rebuild *)",
       "Bash(npm ls *)",
       "Bash(npx tsc *)",
-      "Bash(npx vitest *)"
+      "Bash(npx vitest *)",
+      "Bash(node --experimental-strip-types -e ' *)",
+      "Bash(cp /tmp/debugwebhook.mjs /shared/ReleifTrace/backend/debugwebhook.mjs)",
+      "Bash(npx tsx *)",
+      "Bash(node -e 'console.log\\(\"fcb5badb3b9813318a637ee8dc5b1738ddbb58fc4e9637ad1420f8306fdb2076\".length\\)')",
+      "Bash(python3 -)",
+      "Bash(node -e 'console.log\\(\"cd0570a4d6632071fe37c4683d7c897ca182f1eb9f5292397ec73899122f66d9\".length\\)')"
     ]
   }
 }
