@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.env
+data/*.sqlite
+data/*.sqlite-*
+evidence-store/**
+!evidence-store/.gitkeep
+contracts/node_modules/
+contracts/artifacts/
+contracts/cache/
+contracts/deployments/*.json
+*.log

@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "Bash(echo \"started with pid $!\")",
+      "Bash(tail -30 /tmp/backend_npm_install.log; echo \"---\"; ps aux | grep \"npm install\" | grep -v grep)",
+      "Read(//tmp/**)",
+      "Bash(npm audit *)",
+      "Bash(node -e ' *)",
+      "Bash(npx hardhat *)",
+      "Bash(node -e \"console.log\\(require\\('typescript/package.json'\\).version\\)\")",
+      "Bash(node -e \"console.log\\(require\\('ts-node/package.json'\\).version\\)\")",
+      "Bash(npm approve-scripts *)",
+      "Bash(npm rebuild *)",
+      "Bash(npm ls *)",
+      "Bash(npx tsc *)",
+      "Bash(npx vitest *)"
+    ]
+  }
+}
