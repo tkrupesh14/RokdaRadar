@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Logo from "./Logo";
 
 export default function Nav() {
   return (
@@ -10,17 +11,8 @@ export default function Nav() {
         padding: "22px clamp(20px,5vw,72px)",
       }}
     >
-      <Link
-        href="/"
-        style={{
-          fontFamily: "var(--font-heading)",
-          fontSize: 19,
-          marginRight: "auto",
-          textDecoration: "none",
-          color: "inherit",
-        }}
-      >
-        ReliefTrace
+      <Link href="/" style={{ marginRight: "auto", display: "flex", alignItems: "center", color: "inherit" }}>
+        <Logo />
       </Link>
       <Link href="/#how" style={{ color: "inherit", textDecoration: "none", fontSize: 14 }}>
         How it works

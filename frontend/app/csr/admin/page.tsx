@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { CAMPAIGN_CHOICES, CATEGORY_CHOICES, INITIAL_OPERATORS, type Operator } from "@/lib/csrData";
 import { fmtINR } from "@/lib/format";
+import Logo from "@/components/Logo";
 
 type Tab = "newCampaign" | "operators" | "assign" | "progress";
 const TABS: { id: Tab; label: string }[] = [
@@ -84,7 +85,7 @@ export default function CsrTeamAdmin() {
       <div style={{ fontFamily: "var(--font-body)", minHeight: "100vh", background: "var(--color-bg)", color: "var(--color-text)", fontSize: 13.5, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
         <div className="card elev-lg" style={{ width: "100%", maxWidth: 380, padding: 32 }}>
           <div style={{ fontSize: 12, letterSpacing: "0.06em", textTransform: "uppercase", fontWeight: 600, color: "var(--color-accent-700)", marginBottom: 6 }}>
-            ReliefTrace for CSR
+            RokdaRadar for CSR
           </div>
           <h1 style={{ fontFamily: "var(--font-heading)", fontWeight: 400, fontSize: 23, margin: "0 0 22px" }}>Team &amp; Campaigns</h1>
           <div className="field" style={{ marginBottom: 14 }}>
@@ -106,8 +107,11 @@ export default function CsrTeamAdmin() {
   return (
     <div style={{ fontFamily: "var(--font-body)", minHeight: "100vh", background: "var(--color-bg)", color: "var(--color-text)", fontSize: 13.5 }}>
       <header style={{ display: "flex", alignItems: "center", gap: 16, padding: "16px clamp(16px,3vw,40px)", borderBottom: "1px solid var(--color-divider)", flexWrap: "wrap" }}>
-        <Link href="/csr" style={{ fontFamily: "var(--font-heading)", fontSize: 17, textDecoration: "none", color: "var(--color-text)" }}>
-          ReliefTrace <span style={{ color: "color-mix(in srgb, var(--color-text) 55%, transparent)", fontWeight: 400 }}>for CSR</span>
+        <Link href="/csr" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none", color: "var(--color-text)" }}>
+          <Logo height={22} />
+          <span style={{ color: "color-mix(in srgb, var(--color-text) 55%, transparent)", fontFamily: "var(--font-heading)", fontSize: 17, fontWeight: 400 }}>
+            for CSR
+          </span>
         </Link>
         <span style={{ fontSize: 12.5, color: "color-mix(in srgb, var(--color-text) 60%, transparent)" }}>{orgName}</span>
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12 }}>

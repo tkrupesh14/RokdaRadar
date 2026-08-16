@@ -15,7 +15,7 @@ export default function Footer() {
     >
       Money moves via UPI. Only proof is recorded on Monad. No cryptocurrency changes hands.
       <br />
-      ReliefTrace India — a transparency layer for disaster relief.
+      RokdaRadar India — a transparency layer for disaster relief.
       <div style={{ marginTop: 16, display: "flex", gap: 16, flexWrap: "wrap" }}>
         <Link href="/operator" style={{ fontSize: 12.5 }}>
           Operator Console

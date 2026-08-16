@@ -31,7 +31,7 @@ const STEPS: Step[] = [
     meter: 58,
   },
   {
-    ticker: "Chindi Chor Foundation ne evidence nahi diya. Contract ne REJECT kar diya. #ReliefTrace",
+    ticker: "Chindi Chor Foundation ne evidence nahi diya. Contract ne REJECT kar diya. #RokdaRadar",
     active: [],
     settled: [
       { agent: "Chindi Chor Foundation", action: "Spend · Shelter", amount: 22000, outcome: "rejected", caption: "Evidence hi nahi diya, ekdum REJECTED!", stamp: true },
@@ -55,7 +55,7 @@ const STEPS: Step[] = [
     meter: 44,
   },
   {
-    ticker: 'PM Chai-Pe-Charcha-ji tweets: "ReliefTrace se transparency aayi, ab sirf chai pe hi charcha hogi."',
+    ticker: 'PM Chai-Pe-Charcha-ji tweets: "RokdaRadar se transparency aayi, ab sirf chai pe hi charcha hogi."',
     active: [],
     settled: [],
     meter: 44,
@@ -130,7 +130,7 @@ export default function ArenaMode() {
           Bharatpuri Baadh Rahat 2026
         </h1>
         <p style={{ fontSize: 13.5, color: "#5A4A57", margin: "0 0 20px" }}>
-          Sabka Saath, Sabka Ledger. Same real contract and AI pipeline as ReliefTrace — a fictional country, watching
+          Sabka Saath, Sabka Ledger. Same real contract and AI pipeline as RokdaRadar — a fictional country, watching
           fraud get caught live.
         </p>
 
@@ -207,7 +207,7 @@ export default function ArenaMode() {
               </div>
             </div>
             <p style={{ fontSize: 14.5, lineHeight: "22px", margin: "0 0 10px" }}>
-              &quot;ReliefTrace se transparency aayi, ab sirf chai pe hi charcha hogi.&quot; 🍵🎪
+              &quot;RokdaRadar se transparency aayi, ab sirf chai pe hi charcha hogi.&quot; 🍵🎪
             </p>
             <div style={{ fontSize: 11.5, color: "#5A4A57" }}>11:47 AM · Fictional Twitter, Bharatpuri</div>
           </div>
@@ -265,7 +265,7 @@ export default function ArenaMode() {
 
         <div style={{ marginTop: 40, textAlign: "center" }}>
           <Link href="/" style={{ fontSize: 13, color: "#E6357F" }}>
-            ← Back to ReliefTrace
+            ← Back to RokdaRadar
           </Link>
         </div>
       </div>

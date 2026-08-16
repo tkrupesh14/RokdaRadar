@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import TxModal from "@/components/TxModal";
+import Logo from "@/components/Logo";
 import { fmtINR } from "@/lib/format";
 import type { CampaignDetail } from "@/lib/campaigns";
 
@@ -51,9 +52,9 @@ export default function DonateClient({ campaign }: { campaign: CampaignDetail })
       >
         <Link
           href={`/campaign/${campaign.slug}`}
-          style={{ fontFamily: "var(--font-heading)", fontSize: 19, marginRight: "auto", textDecoration: "none", color: "var(--color-text)" }}
+          style={{ marginRight: "auto", display: "flex", alignItems: "center", color: "var(--color-text)" }}
         >
-          ReliefTrace
+          <Logo />
         </Link>
         <Link href={`/campaign/${campaign.slug}`} style={{ fontSize: 13, textDecoration: "none" }}>
           ← Back to campaign

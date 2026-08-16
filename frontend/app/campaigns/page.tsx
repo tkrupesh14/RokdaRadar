@@ -5,7 +5,7 @@ import { CAMPAIGNS } from "@/lib/campaigns";
 import { getAggregate } from "@/lib/api";
 import { fmtINR, paiseToRupees } from "@/lib/format";
 
-export const metadata = { title: "All campaigns — ReliefTrace" };
+export const metadata = { title: "All campaigns — RokdaRadar" };
 
 async function loadCampaignSummaries() {
   const entries = Object.values(CAMPAIGNS);

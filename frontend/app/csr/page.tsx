@@ -5,6 +5,7 @@ import Link from "next/link";
 import { CAT_COLORS, CSR_CAMPAIGNS, type CsrCampaign } from "@/lib/csrData";
 import { getAggregate } from "@/lib/api";
 import { fmtINR, paiseToRupees } from "@/lib/format";
+import Logo from "@/components/Logo";
 
 type TrustFilter = "all" | "high" | "mid" | "low";
 type AnomalyFilter = "all" | "flagged" | "clear";
@@ -117,7 +118,7 @@ export default function CsrDashboard() {
       <div style={{ fontFamily: "var(--font-body)", minHeight: "100vh", background: "var(--color-bg)", color: "var(--color-text)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
         <div className="card elev-lg" style={{ width: "100%", maxWidth: 380, padding: 32 }}>
           <div style={{ fontSize: 12, letterSpacing: "0.06em", textTransform: "uppercase", fontWeight: 600, color: "var(--color-accent-700)", marginBottom: 6 }}>
-            ReliefTrace for CSR
+            RokdaRadar for CSR
           </div>
           <h1 style={{ fontFamily: "var(--font-heading)", fontWeight: 400, fontSize: 23, margin: "0 0 22px" }}>Compliance Dashboard</h1>
           <div className="field" style={{ marginBottom: 14 }}>
@@ -142,8 +143,11 @@ export default function CsrDashboard() {
   return (
     <div style={{ fontFamily: "var(--font-body)", minHeight: "100vh", background: "var(--color-bg)", color: "var(--color-text)", fontSize: 13.5 }}>
       <header style={{ display: "flex", alignItems: "center", gap: 16, padding: "16px clamp(16px,3vw,40px)", borderBottom: "1px solid var(--color-divider)", flexWrap: "wrap" }}>
-        <span style={{ fontFamily: "var(--font-heading)", fontSize: 17 }}>
-          ReliefTrace <span style={{ color: "color-mix(in srgb, var(--color-text) 55%, transparent)", fontWeight: 400 }}>for CSR</span>
+        <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <Logo height={22} />
+          <span style={{ color: "color-mix(in srgb, var(--color-text) 55%, transparent)", fontFamily: "var(--font-heading)", fontSize: 17, fontWeight: 400 }}>
+            for CSR
+          </span>
         </span>
         <span style={{ fontSize: 12.5, color: "color-mix(in srgb, var(--color-text) 60%, transparent)" }}>{orgName}</span>
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12 }}>

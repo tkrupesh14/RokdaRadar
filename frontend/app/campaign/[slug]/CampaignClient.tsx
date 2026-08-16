@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import TxModal from "@/components/TxModal";
 import ImagePlaceholder from "@/components/ImagePlaceholder";
+import Logo from "@/components/Logo";
 import { fmtINR } from "@/lib/format";
 import type { CampaignDetail, LedgerRow, RelatedCampaign } from "@/lib/campaigns";
 import type { ApiReport } from "@/lib/api";
@@ -48,11 +49,8 @@ export default function CampaignClient({
           borderBottom: "1px solid var(--color-divider)",
         }}
       >
-        <Link
-          href="/"
-          style={{ fontFamily: "var(--font-heading)", fontSize: 19, marginRight: "auto", textDecoration: "none", color: "var(--color-text)" }}
-        >
-          ReliefTrace
+        <Link href="/" style={{ marginRight: "auto", display: "flex", alignItems: "center", color: "var(--color-text)" }}>
+          <Logo />
         </Link>
         <Link href="/#how" style={{ color: "inherit", textDecoration: "none", fontSize: 14 }}>
           How it works
@@ -70,7 +68,7 @@ export default function CampaignClient({
 
       <div style={{ maxWidth: 1280, margin: "0 auto", padding: "28px clamp(20px,4vw,56px) 72px" }}>
         <Link href="/" style={{ fontSize: 13, textDecoration: "none" }}>
-          ← Back to ReliefTrace
+          ← Back to RokdaRadar
         </Link>
 
         <div
@@ -465,7 +463,7 @@ export default function CampaignClient({
           margin: "0 auto",
         }}
       >
-        ReliefTrace India — a transparency layer for disaster relief.
+        RokdaRadar India — a transparency layer for disaster relief.
       </footer>
 
       {modalData && (

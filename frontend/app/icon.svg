@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <!-- Background circle: deep warm brown (--color-accent-800) -->
+  <circle cx="16" cy="16" r="15" fill="#643312" stroke="#f6a06b" stroke-width="2"/>
+  <!-- Radar rings: warm mid-brown (--color-accent-600) -->
+  <circle cx="16" cy="16" r="10" fill="none" stroke="#b2622d" stroke-width="1.5"/>
+  <circle cx="16" cy="16" r="5" fill="none" stroke="#b2622d" stroke-width="1.5"/>
+  <!-- Radar sweep: warm peach (--color-accent-300) -->
+  <path d="M16 16 L24 8 A11.3 11.3 0 0 1 26 16 Z" fill="#ffc6a5" opacity="0.55"/>
+  <!-- Blip: sage green (--color-accent-2-500), the app's "verified" color -->
+  <circle cx="21" cy="11" r="2" fill="#8fa073"/>
+</svg>

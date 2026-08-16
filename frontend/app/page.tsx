@@ -83,7 +83,7 @@ export default function Home() {
         {/* Stats bed */}
         <section
           style={{ position: "relative", padding: "8px 0 48px", minHeight: 360 }}
-          aria-label="ReliefTrace, by the numbers"
+          aria-label="RokdaRadar, by the numbers"
         >
           <div
             style={{

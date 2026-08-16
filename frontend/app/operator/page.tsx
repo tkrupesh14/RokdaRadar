@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { getFeed } from "@/lib/api";
 import { paiseToRupees } from "@/lib/format";
+import Logo from "@/components/Logo";
 
 const CATEGORY_NAMES = ["Food", "Water", "Medical", "Shelter", "Logistics", "Admin"];
 
@@ -126,7 +127,7 @@ export default function OperatorConsole() {
       <div style={{ fontFamily: "var(--font-body)", minHeight: "100vh", background: "var(--color-neutral-900)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
         <div className="card elev-lg" style={{ width: "100%", maxWidth: 360, padding: 32 }}>
           <div style={{ fontSize: 12, letterSpacing: "0.06em", textTransform: "uppercase", fontWeight: 600, color: "var(--color-accent-700)", marginBottom: 6 }}>
-            ReliefTrace — internal access
+            RokdaRadar — internal access
           </div>
           <h1 style={{ fontFamily: "var(--font-heading)", fontWeight: 400, fontSize: 24, margin: "0 0 22px" }}>Operator Console</h1>
           <div className="field" style={{ marginBottom: 14 }}>
@@ -151,7 +152,10 @@ export default function OperatorConsole() {
   return (
     <div style={{ fontFamily: "var(--font-body)", minHeight: "100vh", background: "var(--color-bg)", color: "var(--color-text)" }}>
       <header style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", padding: "16px clamp(16px,4vw,40px)", background: "var(--color-neutral-900)", color: "var(--color-neutral-100)" }}>
-        <span style={{ fontFamily: "var(--font-heading)", fontSize: 17 }}>ReliefTrace Operator</span>
+        <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <Logo height={22} />
+          <span style={{ fontFamily: "var(--font-heading)", fontSize: 17 }}>Operator</span>
+        </span>
         <select
           className="op-select input"
           style={{ width: "auto", maxWidth: 220, background: "var(--color-neutral-800)", color: "var(--color-neutral-100)", borderColor: "var(--color-neutral-700)" }}

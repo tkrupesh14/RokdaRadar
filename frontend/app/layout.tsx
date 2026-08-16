@@ -15,9 +15,9 @@ const figtree = Figtree({
 });
 
 export const metadata: Metadata = {
-  title: "ReliefTrace — proof of where relief money goes",
+  title: "RokdaRadar — proof of where relief money goes",
   description:
-    "ReliefTrace is a transparency layer for disaster relief. Donations move via UPI; every rupee spent is recorded with evidence on Monad.",
+    "RokdaRadar is a transparency layer for disaster relief. Donations move via UPI; every rupee spent is recorded with evidence on Monad.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

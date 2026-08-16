@@ -1,4 +1,4 @@
-// Typed client for the ReliefTrace backend (../backend). See
+// Typed client for the RokdaRadar backend (../backend). See
 // ReliefTrace_LLD.md Section 3.4/4.2 for the exact response shapes this
 // mirrors. Every function returns `null` on any failure (network error,
 // 404, backend not running) rather than throwing -- callers merge onto
