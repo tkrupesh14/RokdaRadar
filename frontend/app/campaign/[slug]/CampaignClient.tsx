@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import TxModal from "@/components/TxModal";
 import ImagePlaceholder from "@/components/ImagePlaceholder";
@@ -136,14 +137,32 @@ export default function CampaignClient({
                 height: 380,
               }}
             >
-              <div style={{ gridRow: "1/3", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
-                <ImagePlaceholder label="Relief camp — main photo" />
+              <div style={{ gridRow: "1/3", position: "relative", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
+                <Image
+                  src="/campaign/relief-camp.jpeg"
+                  alt="Relief camp — main photo"
+                  fill
+                  sizes="(max-width: 900px) 100vw, 640px"
+                  style={{ objectFit: "cover" }}
+                />
               </div>
-              <div style={{ borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
-                <ImagePlaceholder label="Distribution photo" />
+              <div style={{ position: "relative", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
+                <Image
+                  src="/campaign/distribution.jpeg"
+                  alt="Distribution photo"
+                  fill
+                  sizes="(max-width: 900px) 50vw, 320px"
+                  style={{ objectFit: "cover" }}
+                />
               </div>
-              <div style={{ borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
-                <ImagePlaceholder label="Volunteer photo" />
+              <div style={{ position: "relative", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
+                <Image
+                  src="/campaign/volunteers.jpeg"
+                  alt="Volunteer photo"
+                  fill
+                  sizes="(max-width: 900px) 50vw, 320px"
+                  style={{ objectFit: "cover" }}
+                />
               </div>
             </section>
 
