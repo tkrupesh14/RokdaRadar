@@ -13,6 +13,7 @@ import { webhooksRouter } from "./routes/webhooks.js";
 import { spendRouter } from "./routes/spend.js";
 import { deliveryRouter } from "./routes/delivery.js";
 import { reportRouter } from "./routes/report.js";
+import { pendingSpendsRouter } from "./routes/pendingSpends.js";
 
 export function createApp() {
   const app = express();
@@ -38,6 +39,7 @@ export function createApp() {
   app.use(spendRouter);
   app.use(deliveryRouter);
   app.use(reportRouter);
+  app.use(pendingSpendsRouter);
 
   app.use(errorHandler);
 

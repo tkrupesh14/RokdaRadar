@@ -1,19 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getFeed } from "@/lib/api";
-import { paiseToRupees } from "@/lib/format";
+import { getFeed, recordSpend } from "@/lib/api";
+import { paiseToRupees, shortHash, explorerTxUrl } from "@/lib/format";
+import { connectWallet, getAuthorizedAccount, onAccountsChanged, signOperatorRequest } from "@/lib/wallet";
+import { useNetworkStatus } from "@/lib/network";
+import { useLiveLocation } from "@/lib/geolocation";
 import Logo from "@/components/Logo";
+import EvidenceCapture from "@/components/EvidenceCapture";
 
 const CATEGORY_NAMES = ["Food", "Water", "Medical", "Shelter", "Logistics", "Admin"];
 
 // Backend campaignIds -- see lib/campaigns.ts / lib/csrData.ts backendId.
 // The contract's campaignCount starts at 0, so the first campaign ever
-// created is id 0, not 1. "Record a spend" below stays a local-only demo:
-// submitting a real spend requires an operator wallet signature (POST
-// /api/campaigns/:id/spend, see backend/scripts/signOperatorRequest.ts),
-// which this console has no key to produce yet.
+// created is id 0, not 1.
 const CAMPAIGN_BACKEND_IDS: Record<string, number> = { wayanad: 0, assam: 1, odisha: 2 };
+const SPEND_ROUTE = "POST /api/campaigns/:id/spend";
 
 type Spend = {
   id: number;
@@ -21,8 +23,10 @@ type Spend = {
   category: string;
   amount: number;
   date: string;
-  status: "confirmed" | "pending";
+  status: "confirmed" | "pending" | "failed";
   hash?: string;
+  explorerUrl?: string;
+  error?: string;
 };
 
 const INITIAL_SPENDS: Spend[] = [
@@ -35,28 +39,48 @@ function fmtINR(n: number) {
   return "₹" + Number(n).toLocaleString("en-IN");
 }
 
-function fakeHash() {
-  const h = () => Math.random().toString(16).slice(2, 6);
-  return "0x" + h() + "..." + h();
-}
-
 export default function OperatorConsole() {
   const [loggedIn, setLoggedIn] = useState(false);
-  const [operatorId, setOperatorId] = useState("");
-  const [pin, setPin] = useState("");
+  const [address, setAddress] = useState<string | null>(null);
+  const [connecting, setConnecting] = useState(false);
+  const [connectError, setConnectError] = useState<string | null>(null);
   const [campaign, setCampaign] = useState("wayanad");
-  const [online, setOnline] = useState(true);
+  const network = useNetworkStatus();
+  const location = useLiveLocation(loggedIn);
+
+  // Skip the login screen if the wallet is already authorized for this site
+  // (a prior "Connect wallet" grant persists across reloads in MetaMask), and
+  // log out automatically if the operator disconnects or switches accounts
+  // to one that hasn't granted access.
+  useEffect(() => {
+    let cancelled = false;
+    getAuthorizedAccount().then((addr) => {
+      if (cancelled || !addr) return;
+      setAddress(addr);
+      setLoggedIn(true);
+    });
+    const unsubscribe = onAccountsChanged((accounts) => {
+      const addr = accounts[0] ?? null;
+      setAddress(addr);
+      setLoggedIn(!!addr);
+    });
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, []);
 
   const [vendor, setVendor] = useState("");
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState("2026-08-15");
   const [category, setCategory] = useState<string | null>(null);
   const [memo, setMemo] = useState("");
-  const [evidenceAttached, setEvidenceAttached] = useState(false);
+  const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
 
   const [spends, setSpends] = useState<Spend[]>(INITIAL_SPENDS);
+  const [submitting, setSubmitting] = useState(false);
   const [justSubmitted, setJustSubmitted] = useState<number | null>(null);
-  const [showRejectToast, setShowRejectToast] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
 
   // Overlays real confirmed spends from the backend feed for campaigns that
   // have a real on-chain campaignId (currently just wayanad). Falls back to
@@ -78,7 +102,8 @@ export default function OperatorConsole() {
           amount: paiseToRupees(item.amountPaise),
           date: new Date(item.ts * 1000).toLocaleDateString("en-IN", { month: "short", day: "numeric" }),
           status: "confirmed",
-          hash: item.txHash.length > 14 ? `${item.txHash.slice(0, 6)}...${item.txHash.slice(-4)}` : item.txHash,
+          hash: shortHash(item.txHash),
+          explorerUrl: explorerTxUrl(item.txHash),
         }));
       if (realSpends.length > 0) {
         setSpends((prev) => [...realSpends, ...prev.filter((s) => s.id > 0)]);
@@ -89,37 +114,75 @@ export default function OperatorConsole() {
     };
   }, [campaign]);
 
-  const canSubmit = !!(vendor && Number(amount) > 0 && category && evidenceAttached);
+  const canSubmit = !!(vendor && Number(amount) > 0 && category && evidenceFile && address && !submitting);
 
-  const onLogin = () => {
-    if (operatorId && pin) setLoggedIn(true);
+  const onConnectWallet = async () => {
+    setConnecting(true);
+    setConnectError(null);
+    try {
+      const addr = await connectWallet();
+      setAddress(addr);
+      setLoggedIn(true);
+    } catch (err) {
+      setConnectError(err instanceof Error ? err.message : "Could not connect wallet.");
+    } finally {
+      setConnecting(false);
+    }
   };
+
   const onLogout = () => {
     setLoggedIn(false);
-    setOperatorId("");
-    setPin("");
+    setAddress(null);
   };
 
-  const onSubmit = () => {
-    if (!canSubmit || !category) return;
-    const rec: Spend = { id: Date.now(), vendor, category, amount: Number(amount), date, status: "pending" };
-    setSpends((s) => [rec, ...s]);
-    setJustSubmitted(rec.id);
+  const onSubmit = async () => {
+    if (!canSubmit || !category || !evidenceFile || !address) return;
+    const backendId = CAMPAIGN_BACKEND_IDS[campaign];
+    const amountPaise = Math.round(Number(amount) * 100);
+    const recordId = Date.now();
+
+    setSubmitting(true);
+    setSpends((s) => [{ id: recordId, vendor, category, amount: Number(amount), date, status: "pending" }, ...s]);
+    setJustSubmitted(recordId);
+
+    const submittedVendor = vendor;
     setVendor("");
     setAmount("");
     setCategory(null);
     setMemo("");
-    setEvidenceAttached(false);
+    setEvidenceFile(null);
 
-    setTimeout(() => {
-      setSpends((s) => s.map((sp) => (sp.id === rec.id ? { ...sp, status: "confirmed", hash: fakeHash() } : sp)));
-    }, 1400);
-    setTimeout(() => setJustSubmitted(null), 4000);
-  };
-
-  const onDemoReject = () => {
-    setShowRejectToast(true);
-    setTimeout(() => setShowRejectToast(false), 3500);
+    try {
+      if (backendId === undefined) {
+        throw new Error("This demo campaign has no on-chain id yet — spend recording is unavailable for it.");
+      }
+      const auth = await signOperatorRequest(address, SPEND_ROUTE, backendId);
+      const result = await recordSpend(
+        backendId,
+        { vendorRef: submittedVendor, amountPaise, category: category.toUpperCase(), memo, evidenceFile },
+        auth
+      );
+      if (result.ok) {
+        setSpends((s) =>
+          s.map((sp) =>
+            sp.id === recordId
+              ? { ...sp, status: "confirmed", hash: shortHash(result.data.txHash), explorerUrl: result.data.explorerUrl }
+              : sp
+          )
+        );
+      } else {
+        setSpends((s) => s.map((sp) => (sp.id === recordId ? { ...sp, status: "failed", error: result.error } : sp)));
+        setToast(result.error);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to sign or submit the request.";
+      setSpends((s) => s.map((sp) => (sp.id === recordId ? { ...sp, status: "failed", error: message } : sp)));
+      setToast(message);
+    } finally {
+      setSubmitting(false);
+      setTimeout(() => setJustSubmitted(null), 4000);
+      setTimeout(() => setToast(null), 5000);
+    }
   };
 
   if (!loggedIn) {
@@ -130,17 +193,15 @@ export default function OperatorConsole() {
             RokdaRadar — internal access
           </div>
           <h1 style={{ fontFamily: "var(--font-heading)", fontWeight: 400, fontSize: 24, margin: "0 0 22px" }}>Operator Console</h1>
-          <div className="field" style={{ marginBottom: 14 }}>
-            <label>Operator ID</label>
-            <input className="input" type="text" placeholder="OP-2291" value={operatorId} onChange={(e) => setOperatorId(e.target.value)} />
-          </div>
-          <div className="field" style={{ marginBottom: 20 }}>
-            <label>PIN</label>
-            <input className="input" type="password" placeholder="4-digit PIN" value={pin} onChange={(e) => setPin(e.target.value)} />
-          </div>
-          <button type="button" className="btn btn-primary btn-block" disabled={!(operatorId && pin)} onClick={onLogin}>
-            Log in
+          <p style={{ fontSize: 13, lineHeight: "19px", color: "color-mix(in srgb, var(--color-text) 65%, transparent)", margin: "0 0 20px" }}>
+            Connect the operator wallet used to sign spends and delivery attestations for this campaign.
+          </p>
+          <button type="button" className="btn btn-primary btn-block" disabled={connecting} onClick={onConnectWallet}>
+            {connecting ? "Connecting…" : "Connect wallet"}
           </button>
+          {connectError && (
+            <p style={{ fontSize: 12.5, color: "var(--color-accent-800)", margin: "12px 0 0" }}>{connectError}</p>
+          )}
           <p style={{ fontSize: 12, lineHeight: "19px", color: "color-mix(in srgb, var(--color-text) 60%, transparent)", margin: "16px 0 0" }}>
             Access is limited to verified relief operators. Donors and the public use the campaign page instead.
           </p>
@@ -166,13 +227,15 @@ export default function OperatorConsole() {
           <option value="assam">Assam Flood Relief 2026</option>
           <option value="odisha">Odisha Cyclone Rebuild Fund</option>
         </select>
-        <span onClick={() => setOnline((o) => !o)} style={{ cursor: "pointer", fontSize: 12, padding: "4px 10px", borderRadius: 999, background: "var(--color-neutral-800)" }}>
-          {online ? "🟢 Online" : "📶 Poor connection — will sync later"}
+        <span style={{ fontSize: 12, padding: "4px 10px", borderRadius: 999, background: "var(--color-neutral-800)" }}>
+          {network === "online" && "🟢 Online"}
+          {network === "poor" && "📶 Poor connection — will sync later"}
+          {network === "offline" && "📴 Offline — will sync later"}
         </span>
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12 }}>
-          <span style={{ fontSize: 13, color: "var(--color-neutral-300)" }}>{operatorId}</span>
+          <span style={{ fontSize: 13, color: "var(--color-neutral-300)" }}>{address ? shortHash(address) : ""}</span>
           <button type="button" className="btn btn-secondary" style={{ background: "transparent", borderColor: "var(--color-neutral-700)", color: "var(--color-neutral-100)" }} onClick={onLogout}>
-            Log out
+            Disconnect
           </button>
         </div>
       </header>
@@ -194,7 +257,7 @@ export default function OperatorConsole() {
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
             <div className="field">
-              <label>Amount</label>
+              <label>Amount (₹)</label>
               <input className="input" type="number" placeholder="₹" value={amount} onChange={(e) => setAmount(e.target.value)} />
             </div>
             <div className="field">
@@ -239,53 +302,29 @@ export default function OperatorConsole() {
 
           <div className="field">
             <label>Evidence</label>
-            {evidenceAttached ? (
-              <div style={{ display: "flex", alignItems: "center", gap: 12, padding: 12, borderRadius: "var(--radius-md)", background: "var(--color-surface)" }}>
-                <div style={{ width: 44, height: 44, borderRadius: "var(--radius-sm)", background: "var(--color-accent-200)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>
-                  📷
-                </div>
-                <span style={{ fontSize: 13.5, flex: 1 }}>Evidence photo attached</span>
-                <button type="button" className="btn btn-ghost" onClick={() => setEvidenceAttached(false)}>
-                  Remove
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setEvidenceAttached(true)}
-                style={{
-                  width: "100%",
-                  padding: 22,
-                  borderRadius: "var(--radius-md)",
-                  border: "1.5px dashed var(--color-divider)",
-                  background: "transparent",
-                  cursor: "pointer",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: 8,
-                  color: "var(--color-text)",
-                }}
-              >
-                <span style={{ fontSize: 22 }}>📷</span>
-                <span style={{ fontSize: 13.5 }}>Tap to attach evidence photo</span>
-              </button>
-            )}
+            <EvidenceCapture value={evidenceFile} onChange={setEvidenceFile} />
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: "color-mix(in srgb, var(--color-text) 65%, transparent)" }}>
-            <span>📍</span> Location tagged: Meppadi, Wayanad district
+            <span>📍</span>
+            {location.status === "idle" || location.status === "locating" ? (
+              <span>Locating…</span>
+            ) : location.status === "error" ? (
+              <span>{location.error ?? "Location unavailable"}</span>
+            ) : (
+              <span>
+                Location tagged: {location.label ?? `${location.coords!.lat.toFixed(5)}, ${location.coords!.lng.toFixed(5)}`}
+                {location.coords && ` (±${Math.round(location.coords.accuracy)}m)`}
+              </span>
+            )}
           </div>
 
-          {!evidenceAttached && (
+          {!evidenceFile && (
             <p style={{ fontSize: 12.5, color: "var(--color-accent-800)", margin: 0 }}>Evidence required to record a spend.</p>
           )}
 
           <button type="button" className="btn btn-primary btn-block" disabled={!canSubmit} onClick={onSubmit}>
-            Record spend
-          </button>
-          <button type="button" className="btn btn-ghost" style={{ alignSelf: "flex-start", fontSize: 12.5 }} onClick={onDemoReject}>
-            Demo: simulate a rejected submission
+            {submitting ? "Signing & submitting…" : "Record spend"}
           </button>
         </div>
 
@@ -300,16 +339,31 @@ export default function OperatorConsole() {
               </div>
               <div style={{ textAlign: "right" }}>
                 <div style={{ fontSize: 13.5, fontWeight: 600 }}>{fmtINR(s.amount)}</div>
-                <div style={{ fontSize: 11, color: s.status === "confirmed" ? "var(--color-accent-2-700)" : "var(--color-accent-700)" }}>
-                  {s.status === "confirmed" ? `Confirmed · ⧉ ${s.hash}` : "Pending sync…"}
-                </div>
+                {s.status === "confirmed" && (
+                  <div style={{ fontSize: 11, color: "var(--color-accent-2-700)" }}>
+                    Confirmed ·{" "}
+                    {s.explorerUrl ? (
+                      <a href={s.explorerUrl} target="_blank" rel="noreferrer" style={{ color: "inherit" }}>
+                        ⧉ {s.hash}
+                      </a>
+                    ) : (
+                      <>⧉ {s.hash}</>
+                    )}
+                  </div>
+                )}
+                {s.status === "pending" && <div style={{ fontSize: 11, color: "var(--color-accent-700)" }}>Pending sync…</div>}
+                {s.status === "failed" && (
+                  <div style={{ fontSize: 11, color: "var(--color-danger-700, #b42318)" }} title={s.error}>
+                    Rejected
+                  </div>
+                )}
               </div>
             </div>
           ))}
         </div>
       </div>
 
-      {showRejectToast && (
+      {toast && (
         <div
           style={{
             position: "fixed",
@@ -328,7 +382,7 @@ export default function OperatorConsole() {
           }}
         >
           <span style={{ fontSize: 16 }}>⚠</span>
-          <span style={{ fontSize: 13.5 }}>The contract rejected this — evidence is missing.</span>
+          <span style={{ fontSize: 13.5 }}>{toast}</span>
         </div>
       )}
     </div>

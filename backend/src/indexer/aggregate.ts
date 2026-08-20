@@ -19,21 +19,21 @@ function median(values: number[]): number {
 }
 
 // Pure, deterministic: no AI involvement anywhere in this file (HLD principle
-// #3, LLD 3.4). Computed on read from SQLite rather than materialized, which
-// is cheap enough at the <=200-event NFT target and avoids a second source of
-// truth to keep in sync with the indexer's write path.
-export function computeAggregate(campaignId: number): CampaignAggregate | null {
-  const campaign = getCampaign(campaignId);
+// #3, LLD 3.4). Computed on read from Postgres rather than materialized,
+// which is cheap enough at the <=200-event NFT target and avoids a second
+// source of truth to keep in sync with the indexer's write path.
+export async function computeAggregate(campaignId: number): Promise<CampaignAggregate | null> {
+  const campaign = await getCampaign(campaignId);
   if (!campaign) return null;
 
   const raisedPaise = campaign.raised_paise;
   const spentPaise = campaign.spent_paise;
   const unspentPaise = raisedPaise - spentPaise;
 
-  const donationCount = countDonations(campaignId);
-  const spendCount = countSpends(campaignId);
+  const donationCount = await countDonations(campaignId);
+  const spendCount = await countSpends(campaignId);
 
-  const rawSplit = categorySplit(campaignId);
+  const rawSplit = await categorySplit(campaignId);
   const categorySplitFull: Record<CategoryName, number> = CATEGORIES.reduce((acc, cat) => {
     acc[cat] = rawSplit[cat] ?? 0;
     return acc;
@@ -42,29 +42,29 @@ export function computeAggregate(campaignId: number): CampaignAggregate | null {
   const adminPaise = categorySplitFull.ADMIN;
   const fieldVsAdminRatio = spentPaise > 0 ? Number(((spentPaise - adminPaise) / spentPaise).toFixed(3)) : 0;
 
-  const vendors = vendorTotals(campaignId);
+  const vendors = await vendorTotals(campaignId);
   const vendorConcentration: VendorConcentrationEntry[] = vendors.map((v) => ({
     vendorRef: v.vendor_ref,
     sharePct: spentPaise > 0 ? Number(((v.total / spentPaise) * 100).toFixed(1)) : 0,
     spendCount: v.count,
   }));
 
-  const medDonation = medianDonationPaise(campaignId);
+  const medDonation = await medianDonationPaise(campaignId);
 
   // LLD 3.4's own "simplified in MVP0" reading: campaign-level median of
   // (spend.ts - firstDonationTs) across all spends, in hours.
-  const firstTs = firstDonationTs(campaignId);
-  const spends = listSpendsByCampaign(campaignId);
+  const firstTs = await firstDonationTs(campaignId);
+  const spends = await listSpendsByCampaign(campaignId);
   const latenciesHours =
     firstTs !== null
       ? spends.map((s) => Math.max(0, (s.ts - firstTs) / 3600))
       : [];
   const medianDisbursementLatencyHours = Number(median(latenciesHours).toFixed(1));
 
-  const deliveryAttestedPct =
-    spendCount > 0 ? Number(((countDeliveryAttestedSpends(campaignId) / spendCount) * 100).toFixed(1)) : 0;
+  const deliveryAttestedCount = await countDeliveryAttestedSpends(campaignId);
+  const deliveryAttestedPct = spendCount > 0 ? Number(((deliveryAttestedCount / spendCount) * 100).toFixed(1)) : 0;
 
-  const anomalyCandidates = runAnomalyRules(campaignId);
+  const anomalyCandidates = await runAnomalyRules(campaignId);
 
   // txIndex resolves every ref a report/guardrail might cite: each spendRef to
   // its own tx hash, plus the campaign's creation tx keyed by campaignId (LLD's

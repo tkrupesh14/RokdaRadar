@@ -15,9 +15,9 @@ vi.mock("../../src/chain/contractClient.js", () => ({
 
 describe("auth rejection on every protected route", () => {
   beforeEach(async () => {
-    freshTestDb();
+    await freshTestDb();
     const { insertCampaign } = await import("../../src/db/repositories/campaignsRepo.js");
-    insertCampaign({
+    await insertCampaign({
       id: 1,
       operator: "0x1111111111111111111111111111111111111111",
       disaster_tag: "KL-WAYANAD-2026-07",
@@ -28,7 +28,7 @@ describe("auth rejection on every protected route", () => {
       creation_tx_hash: "0xcreate",
     });
     const { insertSpend } = await import("../../src/db/repositories/spendsRepo.js");
-    insertSpend({
+    await insertSpend({
       spend_ref: "0xspend1",
       campaign_id: 1,
       utr_hash: "0x0",

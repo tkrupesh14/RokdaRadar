@@ -9,6 +9,11 @@ export default defineConfig({
     include: ["test/**/*.test.ts"],
     exclude: ["contracts/**"],
     testTimeout: 30000,
+    // Test files now share one live Postgres DB (Supabase) instead of each
+    // getting its own throwaway SQLite file, so they can't run in parallel:
+    // one file's freshTestDb() TRUNCATE would wipe rows another file just
+    // inserted mid-run.
+    fileParallelism: false,
     // Set here, not inside individual test files: ES module static imports
     // resolve (including transitive imports of src/config/env.ts) before a
     // test file's own top-level `process.env.X = ...` assignments run, so a

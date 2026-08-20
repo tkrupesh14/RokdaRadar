@@ -29,7 +29,7 @@ export const reportRouter = Router();
  */
 reportRouter.get("/api/campaigns/:id/report", async (req, res, next) => {
   const id = Number(req.params.id);
-  if (!getCampaign(id)) {
+  if (!(await getCampaign(id))) {
     res.status(404).json({ error: "NOT_FOUND", detail: `campaign ${id} not found` });
     return;
   }
@@ -73,7 +73,7 @@ reportRouter.get("/api/campaigns/:id/report", async (req, res, next) => {
  */
 reportRouter.post("/api/campaigns/:id/report/refresh", async (req, res, next) => {
   const id = Number(req.params.id);
-  if (!getCampaign(id)) {
+  if (!(await getCampaign(id))) {
     res.status(404).json({ error: "NOT_FOUND", detail: `campaign ${id} not found` });
     return;
   }

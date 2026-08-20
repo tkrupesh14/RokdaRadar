@@ -1,58 +1,72 @@
-import { getDb } from "../client.js";
+import { getPool, type Executor } from "../client.js";
 import type { SpendRow } from "../../types/domain.js";
 
-export function insertSpend(row: Omit<SpendRow, "delivery_attested">): void {
-  getDb()
-    .prepare(
-      `INSERT OR IGNORE INTO spends
-         (spend_ref, campaign_id, utr_hash, vendor_ref, amount_paise, category, evidence_cid, memo, ts, tx_hash, delivery_attested)
-       VALUES (@spend_ref, @campaign_id, @utr_hash, @vendor_ref, @amount_paise, @category, @evidence_cid, @memo, @ts, @tx_hash, 0)`
-    )
-    .run(row);
+export async function insertSpend(row: Omit<SpendRow, "delivery_attested">, exec: Executor = getPool()): Promise<void> {
+  await exec.query(
+    `INSERT INTO spends
+       (spend_ref, campaign_id, utr_hash, vendor_ref, amount_paise, category, evidence_cid, memo, ts, tx_hash, delivery_attested)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 0)
+     ON CONFLICT (spend_ref) DO NOTHING`,
+    [
+      row.spend_ref,
+      row.campaign_id,
+      row.utr_hash,
+      row.vendor_ref,
+      row.amount_paise,
+      row.category,
+      row.evidence_cid,
+      row.memo,
+      row.ts,
+      row.tx_hash,
+    ]
+  );
 }
 
-export function markDeliveryAttested(spendRef: string): void {
-  getDb().prepare(`UPDATE spends SET delivery_attested = 1 WHERE spend_ref = ?`).run(spendRef);
+export async function markDeliveryAttested(spendRef: string, exec: Executor = getPool()): Promise<void> {
+  await exec.query(`UPDATE spends SET delivery_attested = 1 WHERE spend_ref = $1`, [spendRef]);
 }
 
-export function getSpend(spendRef: string): SpendRow | undefined {
-  return getDb().prepare(`SELECT * FROM spends WHERE spend_ref = ?`).get(spendRef) as SpendRow | undefined;
+export async function getSpend(spendRef: string, exec: Executor = getPool()): Promise<SpendRow | undefined> {
+  const result = await exec.query(`SELECT * FROM spends WHERE spend_ref = $1`, [spendRef]);
+  return result.rows[0] as SpendRow | undefined;
 }
 
-export function listSpendsByCampaign(campaignId: number): SpendRow[] {
-  return getDb()
-    .prepare(`SELECT * FROM spends WHERE campaign_id = ? ORDER BY ts`)
-    .all(campaignId) as SpendRow[];
+export async function listSpendsByCampaign(campaignId: number, exec: Executor = getPool()): Promise<SpendRow[]> {
+  const result = await exec.query(`SELECT * FROM spends WHERE campaign_id = $1 ORDER BY ts`, [campaignId]);
+  return result.rows as SpendRow[];
 }
 
-export function countSpends(campaignId: number): number {
-  const row = getDb()
-    .prepare(`SELECT COUNT(*) as n FROM spends WHERE campaign_id = ?`)
-    .get(campaignId) as { n: number };
-  return row.n;
+export async function countSpends(campaignId: number, exec: Executor = getPool()): Promise<number> {
+  const result = await exec.query(`SELECT COUNT(*) as n FROM spends WHERE campaign_id = $1`, [campaignId]);
+  return Number(result.rows[0].n);
 }
 
-export function countDeliveryAttestedSpends(campaignId: number): number {
-  const row = getDb()
-    .prepare(`SELECT COUNT(*) as n FROM spends WHERE campaign_id = ? AND delivery_attested = 1`)
-    .get(campaignId) as { n: number };
-  return row.n;
+export async function countDeliveryAttestedSpends(campaignId: number, exec: Executor = getPool()): Promise<number> {
+  const result = await exec.query(
+    `SELECT COUNT(*) as n FROM spends WHERE campaign_id = $1 AND delivery_attested = 1`,
+    [campaignId]
+  );
+  return Number(result.rows[0].n);
 }
 
-export function categorySplit(campaignId: number): Record<string, number> {
-  const rows = getDb()
-    .prepare(`SELECT category, SUM(amount_paise) as total FROM spends WHERE campaign_id = ? GROUP BY category`)
-    .all(campaignId) as { category: string; total: number }[];
-  const result: Record<string, number> = {};
-  for (const r of rows) result[r.category] = r.total;
-  return result;
+export async function categorySplit(campaignId: number, exec: Executor = getPool()): Promise<Record<string, number>> {
+  const result = await exec.query(
+    `SELECT category, SUM(amount_paise) as total FROM spends WHERE campaign_id = $1 GROUP BY category`,
+    [campaignId]
+  );
+  const out: Record<string, number> = {};
+  for (const r of result.rows as { category: string; total: number }[]) out[r.category] = r.total;
+  return out;
 }
 
-export function vendorTotals(campaignId: number): { vendor_ref: string; total: number; count: number }[] {
-  return getDb()
-    .prepare(
-      `SELECT vendor_ref, SUM(amount_paise) as total, COUNT(*) as count
-       FROM spends WHERE campaign_id = ? GROUP BY vendor_ref ORDER BY total DESC`
-    )
-    .all(campaignId) as { vendor_ref: string; total: number; count: number }[];
+export async function vendorTotals(
+  campaignId: number,
+  exec: Executor = getPool()
+): Promise<{ vendor_ref: string; total: number; count: number }[]> {
+  const result = await exec.query(
+    `SELECT vendor_ref, SUM(amount_paise) as total, COUNT(*) as count
+     FROM spends WHERE campaign_id = $1 GROUP BY vendor_ref ORDER BY total DESC`,
+    [campaignId]
+  );
+  return result.rows as { vendor_ref: string; total: number; count: number }[];
 }

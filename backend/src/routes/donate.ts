@@ -46,7 +46,7 @@ const donateSchema = z.object({
 donateRouter.post("/api/campaigns/:id/donate", async (req, res, next) => {
   try {
     const id = Number(req.params.id);
-    const campaign = getCampaign(id);
+    const campaign = await getCampaign(id);
     if (!campaign) {
       res.status(404).json({ error: "NOT_FOUND", detail: `campaign ${id} not found` });
       return;

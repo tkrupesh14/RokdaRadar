@@ -9,6 +9,7 @@ import { buildCanonicalMessage } from "../../src/auth/operatorSignature.js";
 // win the race against config/env.ts's own module-load-time zod parse).
 
 const operatorWallet = ethers.Wallet.createRandom();
+const managerWallet = ethers.Wallet.createRandom();
 
 let attestSpendShouldRevert = false;
 
@@ -33,20 +34,48 @@ vi.mock("../../src/chain/contractClient.js", () => ({
   getReadContract: () => ({}),
 }));
 
-async function signSpendRequest(campaignId: number) {
+// The real classifier calls Gemini over the network -- mocked here so the
+// AI-gate branch is deterministic and doesn't depend on a live API key.
+// isBillNext lets individual tests flip the verdict for the "AI rejects
+// junk evidence" case.
+let isBillNext = true;
+vi.mock("../../src/ai/evidenceClassifier.js", () => ({
+  classifyEvidence: async () => ({ isBill: isBillNext, reason: isBillNext ? "Looks like a printed invoice." : "This looks like a random photo, not a receipt." }),
+}));
+
+async function signRequest(route: string, campaignId: number, wallet: ethers.Wallet) {
   const nonce = "n1";
   const timestamp = Date.now();
-  const message = buildCanonicalMessage("POST /api/campaigns/:id/spend", campaignId, nonce, timestamp);
-  const signature = await operatorWallet.signMessage(message);
-  return { authAddress: operatorWallet.address, authNonce: nonce, authTimestamp: timestamp, authSignature: signature };
+  const message = buildCanonicalMessage(route, campaignId, nonce, timestamp);
+  const signature = await wallet.signMessage(message);
+  return { authAddress: wallet.address, authNonce: nonce, authTimestamp: timestamp, authSignature: signature };
 }
 
-describe("POST /api/campaigns/:id/spend contract revert mapping", () => {
+const signSpendRequest = (campaignId: number) => signRequest("POST /api/campaigns/:id/spend", campaignId, operatorWallet);
+const signApproveRequest = (campaignId: number) => signRequest("POST /api/pending-spends/:id/approve", campaignId, managerWallet);
+const signRejectRequest = (campaignId: number) => signRequest("POST /api/pending-spends/:id/reject", campaignId, managerWallet);
+
+async function submitSpend(app: import("express").Express, auth: Awaited<ReturnType<typeof signSpendRequest>>) {
+  return request(app)
+    .post("/api/campaigns/1/spend")
+    .field("vendorRef", "vendorA")
+    .field("amountPaise", "10000")
+    .field("category", "FOOD")
+    .field("memo", "rice")
+    .field("authAddress", auth.authAddress)
+    .field("authNonce", auth.authNonce)
+    .field("authTimestamp", String(auth.authTimestamp))
+    .field("authSignature", auth.authSignature)
+    .attach("evidenceFile", Buffer.from("%PDF-1.4 fake pdf content"), { filename: "invoice.pdf", contentType: "application/pdf" });
+}
+
+describe("POST /api/campaigns/:id/spend -> AI evidence gate -> manager review", () => {
   beforeEach(async () => {
-    freshTestDb();
+    await freshTestDb();
     attestSpendShouldRevert = false;
+    isBillNext = true;
     const { insertCampaign } = await import("../../src/db/repositories/campaignsRepo.js");
-    insertCampaign({
+    await insertCampaign({
       id: 1,
       operator: operatorWallet.address,
       disaster_tag: "KL-WAYANAD-2026-07",
@@ -99,47 +128,98 @@ describe("POST /api/campaigns/:id/spend contract revert mapping", () => {
     expect(res.body.error).toBe("UNSUPPORTED_MIME_TYPE");
   });
 
-  it("maps a contract revert to a 422 CONTRACT_REVERT response", async () => {
-    attestSpendShouldRevert = true;
+  it("rejects evidence the AI screen doesn't recognize as a bill/receipt, with no chain write, but keeps it as a fraud-audit record", async () => {
+    isBillNext = false;
     const { createApp } = await import("../../src/app.js");
     const app = createApp();
     const auth = await signSpendRequest(1);
 
-    const res = await request(app)
-      .post("/api/campaigns/1/spend")
-      .field("vendorRef", "vendorA")
-      .field("amountPaise", "10000")
-      .field("category", "FOOD")
-      .field("memo", "rice")
-      .field("authAddress", auth.authAddress)
-      .field("authNonce", auth.authNonce)
-      .field("authTimestamp", String(auth.authTimestamp))
-      .field("authSignature", auth.authSignature)
-      .attach("evidenceFile", Buffer.from("%PDF-1.4 fake pdf content"), { filename: "invoice.pdf", contentType: "application/pdf" });
+    const res = await submitSpend(app, auth);
+
+    expect(res.status).toBe(422);
+    expect(res.body.code).toBe("AI_EVIDENCE_REJECTED");
+
+    const { listPendingSpends, listSpendsByStatus } = await import("../../src/db/repositories/pendingSpendsRepo.js");
+    // Never enters the manager review queue...
+    expect(await listPendingSpends(1)).toHaveLength(0);
+    // ...but the submission itself, including its evidence, is retained.
+    const rejected = await listSpendsByStatus(1, ["ai_rejected"]);
+    expect(rejected).toHaveLength(1);
+    expect(rejected[0].operator_address).toBe(auth.authAddress);
+    expect(rejected[0].evidence_cid).toBeTruthy();
+    expect(rejected[0].ai_reason).toBe("This looks like a random photo, not a receipt.");
+  });
+
+  it("queues a spend as pending review (not attested) when the AI screen accepts the evidence", async () => {
+    const { createApp } = await import("../../src/app.js");
+    const app = createApp();
+    const auth = await signSpendRequest(1);
+
+    const res = await submitSpend(app, auth);
+
+    expect(res.status).toBe(202);
+    expect(res.body.status).toBe("pending_review");
+    expect(res.body.pendingSpendId).toBeTypeOf("number");
+
+    const { listPendingSpends } = await import("../../src/db/repositories/pendingSpendsRepo.js");
+    const pending = await listPendingSpends(1);
+    expect(pending).toHaveLength(1);
+    expect(pending[0].status).toBe("pending");
+  });
+
+  it("approve: maps a contract revert to a 422 CONTRACT_REVERT response", async () => {
+    const { createApp } = await import("../../src/app.js");
+    const app = createApp();
+    const spendAuth = await signSpendRequest(1);
+    const submitRes = await submitSpend(app, spendAuth);
+    const pendingSpendId = submitRes.body.pendingSpendId;
+
+    attestSpendShouldRevert = true;
+    const approveAuth = await signApproveRequest(1);
+    const res = await request(app).post(`/api/pending-spends/${pendingSpendId}/approve`).send(approveAuth);
 
     expect(res.status).toBe(422);
     expect(res.body.code).toBe("CONTRACT_REVERT");
   });
 
-  it("returns 201 with a spendRef/txHash on a successful, correctly-signed, evidenced spend", async () => {
+  it("approve: writes on-chain and returns a spendRef/txHash on a successful, correctly-signed review", async () => {
     const { createApp } = await import("../../src/app.js");
     const app = createApp();
-    const auth = await signSpendRequest(1);
+    const spendAuth = await signSpendRequest(1);
+    const submitRes = await submitSpend(app, spendAuth);
+    const pendingSpendId = submitRes.body.pendingSpendId;
 
-    const res = await request(app)
-      .post("/api/campaigns/1/spend")
-      .field("vendorRef", "vendorA")
-      .field("amountPaise", "10000")
-      .field("category", "FOOD")
-      .field("memo", "rice")
-      .field("authAddress", auth.authAddress)
-      .field("authNonce", auth.authNonce)
-      .field("authTimestamp", String(auth.authTimestamp))
-      .field("authSignature", auth.authSignature)
-      .attach("evidenceFile", Buffer.from("%PDF-1.4 fake pdf content"), { filename: "invoice.pdf", contentType: "application/pdf" });
+    const approveAuth = await signApproveRequest(1);
+    const res = await request(app).post(`/api/pending-spends/${pendingSpendId}/approve`).send(approveAuth);
 
-    expect(res.status).toBe(201);
+    expect(res.status).toBe(200);
     expect(res.body.txHash).toBe("0xspendtx");
-    expect(res.body.status).toBe("confirmed");
+    expect(res.body.status).toBe("approved");
+
+    const { getPendingSpend } = await import("../../src/db/repositories/pendingSpendsRepo.js");
+    const pending = await getPendingSpend(pendingSpendId);
+    expect(pending?.status).toBe("approved");
+    expect(pending?.tx_hash).toBe("0xspendtx");
+  });
+
+  it("reject: marks the pending spend rejected with no chain write", async () => {
+    const { createApp } = await import("../../src/app.js");
+    const app = createApp();
+    const spendAuth = await signSpendRequest(1);
+    const submitRes = await submitSpend(app, spendAuth);
+    const pendingSpendId = submitRes.body.pendingSpendId;
+
+    const rejectAuth = await signRejectRequest(1);
+    const res = await request(app)
+      .post(`/api/pending-spends/${pendingSpendId}/reject`)
+      .send({ ...rejectAuth, note: "Illegible receipt" });
+
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe("rejected");
+
+    const { getPendingSpend } = await import("../../src/db/repositories/pendingSpendsRepo.js");
+    const pending = await getPendingSpend(pendingSpendId);
+    expect(pending?.status).toBe("rejected");
+    expect(pending?.review_note).toBe("Illegible receipt");
   });
 });

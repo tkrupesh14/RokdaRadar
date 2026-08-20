@@ -58,7 +58,7 @@ webhooksRouter.post("/api/webhooks/upi", raw({ type: "application/json" }), asyn
     }
 
     const campaignId = Number(payment.notes.campaignId);
-    const campaign = getCampaign(campaignId);
+    const campaign = await getCampaign(campaignId);
     if (!campaign) {
       res.status(404).json({ error: "NOT_FOUND", detail: `campaign ${campaignId} not found` });
       return;
