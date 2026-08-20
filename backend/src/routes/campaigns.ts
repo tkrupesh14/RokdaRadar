@@ -101,9 +101,9 @@ campaignsRouter.post("/api/campaigns", async (req, res, next) => {
  *       404:
  *         description: Campaign not found
  */
-campaignsRouter.get("/api/campaigns/:id", (req, res) => {
+campaignsRouter.get("/api/campaigns/:id", async (req, res) => {
   const id = Number(req.params.id);
-  const campaign = getCampaign(id);
+  const campaign = await getCampaign(id);
   if (!campaign) {
     res.status(404).json({ error: "NOT_FOUND", detail: `campaign ${id} not found` });
     return;
@@ -132,8 +132,8 @@ campaignsRouter.get("/api/campaigns/:id", (req, res) => {
  *       200:
  *         description: List of campaigns
  */
-campaignsRouter.get("/api/campaigns", (_req, res) => {
-  const campaigns = listCampaigns().map((c) => ({
+campaignsRouter.get("/api/campaigns", async (_req, res) => {
+  const campaigns = (await listCampaigns()).map((c) => ({
     campaignId: c.id,
     operator: c.operator,
     disasterTag: c.disaster_tag,

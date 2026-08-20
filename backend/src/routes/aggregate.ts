@@ -25,9 +25,9 @@ export const aggregateRouter = Router();
  *       404:
  *         description: Campaign not found
  */
-aggregateRouter.get("/api/campaigns/:id/aggregate", (req, res) => {
+aggregateRouter.get("/api/campaigns/:id/aggregate", async (req, res) => {
   const id = Number(req.params.id);
-  const aggregate = computeAggregate(id);
+  const aggregate = await computeAggregate(id);
   if (!aggregate) {
     res.status(404).json({ error: "NOT_FOUND", detail: `campaign ${id} not found` });
     return;

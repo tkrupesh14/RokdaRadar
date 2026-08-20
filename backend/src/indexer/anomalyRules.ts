@@ -12,16 +12,17 @@ import type { AnomalyCandidate } from "../types/domain.js";
 // no AI judgment call — these must stay deterministic forever per the LLD's
 // own note on rule 3's successor.
 
-export function ruleVendorConcentration(campaignId: number): AnomalyCandidate[] {
-  const campaign = getCampaign(campaignId);
+export async function ruleVendorConcentration(campaignId: number): Promise<AnomalyCandidate[]> {
+  const campaign = await getCampaign(campaignId);
   if (!campaign || campaign.spent_paise === 0) return [];
 
-  const totals = vendorTotals(campaignId);
+  const totals = await vendorTotals(campaignId);
   const flags: AnomalyCandidate[] = [];
   for (const v of totals) {
     const sharePct = (v.total / campaign.spent_paise) * 100;
     if (sharePct > VENDOR_CONCENTRATION_THRESHOLD_PCT) {
-      const vendorSpends = listSpendsByCampaign(campaignId).filter((s) => s.vendor_ref === v.vendor_ref);
+      const allSpends = await listSpendsByCampaign(campaignId);
+      const vendorSpends = allSpends.filter((s) => s.vendor_ref === v.vendor_ref);
       for (const s of vendorSpends) {
         flags.push({ spendRef: s.spend_ref, reason: "vendor_concentration", value: Number(sharePct.toFixed(1)) });
       }
@@ -30,11 +31,11 @@ export function ruleVendorConcentration(campaignId: number): AnomalyCandidate[] 
   return flags;
 }
 
-export function ruleAdminRatio(campaignId: number): AnomalyCandidate[] {
-  const campaign = getCampaign(campaignId);
+export async function ruleAdminRatio(campaignId: number): Promise<AnomalyCandidate[]> {
+  const campaign = await getCampaign(campaignId);
   if (!campaign || campaign.spent_paise === 0) return [];
 
-  const split = categorySplit(campaignId);
+  const split = await categorySplit(campaignId);
   const adminPaise = split["ADMIN"] ?? 0;
   const adminPct = (adminPaise / campaign.spent_paise) * 100;
   if (adminPct > ADMIN_RATIO_THRESHOLD_PCT) {
@@ -43,9 +44,9 @@ export function ruleAdminRatio(campaignId: number): AnomalyCandidate[] {
   return [];
 }
 
-export function ruleCategoryPromiseMismatch(campaignId: number): AnomalyCandidate[] {
+export async function ruleCategoryPromiseMismatch(campaignId: number): Promise<AnomalyCandidate[]> {
   const flags: AnomalyCandidate[] = [];
-  const spends = listSpendsByCampaign(campaignId);
+  const spends = await listSpendsByCampaign(campaignId);
   for (const spend of spends) {
     const memo = (spend.memo ?? "").toLowerCase();
     const isOutOfScope = OUT_OF_SCOPE_TERMS.some((term) => memo.includes(term));
@@ -57,10 +58,10 @@ export function ruleCategoryPromiseMismatch(campaignId: number): AnomalyCandidat
   return flags;
 }
 
-export function runAnomalyRules(campaignId: number): AnomalyCandidate[] {
+export async function runAnomalyRules(campaignId: number): Promise<AnomalyCandidate[]> {
   return [
-    ...ruleVendorConcentration(campaignId),
-    ...ruleAdminRatio(campaignId),
-    ...ruleCategoryPromiseMismatch(campaignId),
+    ...(await ruleVendorConcentration(campaignId)),
+    ...(await ruleAdminRatio(campaignId)),
+    ...(await ruleCategoryPromiseMismatch(campaignId)),
   ];
 }

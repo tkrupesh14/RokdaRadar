@@ -67,6 +67,57 @@ export type ApiReport = {
   translations: Record<string, { headline: string; summary: string }>;
 };
 
+export type OperatorAuth = {
+  authAddress: string;
+  authNonce: string;
+  authTimestamp: number;
+  authSignature: string;
+};
+
+export type ApiSpendResponse = {
+  spendRef?: string;
+  txHash: string;
+  explorerUrl: string;
+  evidenceCID: string;
+  status: "confirmed";
+};
+
+export type SpendResult =
+  | { ok: true; data: ApiSpendResponse }
+  | { ok: false; error: string; code?: string };
+
+// Operator-signature-gated write (POST /api/campaigns/:id/spend), multipart
+// so the evidence file travels in the same request the backend hashes and
+// stores (see backend/src/routes/spend.ts). `auth` comes from
+// lib/wallet.ts's signOperatorRequest("POST /api/campaigns/:id/spend", id, address).
+export async function recordSpend(
+  campaignId: number,
+  input: { vendorRef: string; amountPaise: number; category: string; memo: string; evidenceFile: File },
+  auth: OperatorAuth
+): Promise<SpendResult> {
+  try {
+    const form = new FormData();
+    form.append("vendorRef", input.vendorRef);
+    form.append("amountPaise", String(input.amountPaise));
+    form.append("category", input.category);
+    form.append("memo", input.memo);
+    form.append("authAddress", auth.authAddress);
+    form.append("authNonce", auth.authNonce);
+    form.append("authTimestamp", String(auth.authTimestamp));
+    form.append("authSignature", auth.authSignature);
+    form.append("evidenceFile", input.evidenceFile);
+
+    const res = await fetch(`${API_BASE_URL}/api/campaigns/${campaignId}/spend`, { method: "POST", body: form });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return { ok: false, error: body?.detail || body?.error || `Spend failed (${res.status})`, code: body?.code };
+    }
+    return { ok: true, data: body as ApiSpendResponse };
+  } catch {
+    return { ok: false, error: "Could not reach the backend. Is it running?" };
+  }
+}
+
 async function safeFetch<T>(path: string): Promise<T | null> {
   try {
     const res = await fetch(`${API_BASE_URL}${path}`, { cache: "no-store" });

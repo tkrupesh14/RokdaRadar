@@ -94,7 +94,7 @@ const LOG_QUERY_WINDOW = 100;
 
 async function backfill(contract: ethers.Contract, provider: ethers.JsonRpcProvider): Promise<number> {
   const currentBlock = await provider.getBlockNumber();
-  const lastProcessed = getLastProcessedBlock();
+  const lastProcessed = await getLastProcessedBlock();
 
   // Fresh indexer state (no prior run): start from the chain head rather
   // than genesis. Scanning a contract's entire pre-existing history in
@@ -113,14 +113,14 @@ async function backfill(contract: ethers.Contract, provider: ethers.JsonRpcProvi
   // handler (which recomputes anomalies) always sees consistent prior state.
   const sorted = allLogs.sort((a, b) => a.blockNumber - b.blockNumber || a.index - b.index);
   for (const log of sorted) {
-    applyLog(contract, log);
+    await applyLog(contract, log);
   }
 
-  setLastProcessedBlock(currentBlock);
+  await setLastProcessedBlock(currentBlock);
   return currentBlock;
 }
 
-function applyLog(contract: ethers.Contract, log: ethers.EventLog): void {
+async function applyLog(contract: ethers.Contract, log: ethers.EventLog): Promise<void> {
   // queryFilter("*", ...) already returns fully-typed EventLog instances with
   // `.args` populated by ethers (matched against the contract's interface).
   // `args` is a read-only property there, so it can't be force-reassigned
@@ -135,16 +135,16 @@ function applyLog(contract: ethers.Contract, log: ethers.EventLog): void {
 
   switch (parsedName) {
     case "CampaignCreated":
-      onCampaignCreated(toCampaignCreated(enriched));
+      await onCampaignCreated(toCampaignCreated(enriched));
       break;
     case "DonationAttested":
-      onDonationAttested(toDonationAttested(enriched));
+      await onDonationAttested(toDonationAttested(enriched));
       break;
     case "SpendAttested":
-      onSpendAttested(toSpendAttested(enriched));
+      await onSpendAttested(toSpendAttested(enriched));
       break;
     case "DeliveryAttested":
-      onDeliveryAttested(toDeliveryAttested(enriched));
+      await onDeliveryAttested(toDeliveryAttested(enriched));
       break;
     default:
       break;

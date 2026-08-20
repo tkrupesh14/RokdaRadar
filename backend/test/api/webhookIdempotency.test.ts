@@ -39,10 +39,10 @@ function buildPayload(paymentId: string, campaignId: number, amount = 50000) {
 
 describe("POST /api/webhooks/upi idempotency", () => {
   beforeEach(async () => {
-    freshTestDb();
+    await freshTestDb();
     attestDonationCalls = 0;
     const { insertCampaign } = await import("../../src/db/repositories/campaignsRepo.js");
-    insertCampaign({
+    await insertCampaign({
       id: 1,
       operator: "0xoperator",
       disaster_tag: "KL-WAYANAD-2026-07",

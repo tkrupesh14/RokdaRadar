@@ -47,7 +47,7 @@ deliveryRouter.post("/api/campaigns/:id/spend/:spendRef/deliver", async (req, re
     const campaignId = Number(req.params.id);
     const spendRef = req.params.spendRef;
 
-    const spend = getSpend(spendRef);
+    const spend = await getSpend(spendRef);
     if (!spend || spend.campaign_id !== campaignId) {
       res.status(404).json({ error: "NOT_FOUND", detail: `spend ${spendRef} not found for campaign ${campaignId}` });
       return;

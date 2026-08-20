@@ -6,12 +6,12 @@ import { countDonations, listDonationsByCampaign } from "../../src/db/repositori
 import { countSpends } from "../../src/db/repositories/spendsRepo.js";
 
 describe("indexer replay idempotency", () => {
-  beforeEach(() => {
-    freshTestDb();
+  beforeEach(async () => {
+    await freshTestDb();
   });
 
-  it("does not double-count a donation processed twice (same tx_hash/log_index)", () => {
-    onCampaignCreated({
+  it("does not double-count a donation processed twice (same tx_hash/log_index)", async () => {
+    await onCampaignCreated({
       txHash: "0xcreate",
       logIndex: 0,
       id: 1,
@@ -32,16 +32,16 @@ describe("indexer replay idempotency", () => {
       ts: 1100,
     };
 
-    onDonationAttested(donationEvent);
-    onDonationAttested(donationEvent); // simulate reprocessing the same block on restart
+    await onDonationAttested(donationEvent);
+    await onDonationAttested(donationEvent); // simulate reprocessing the same block on restart
 
-    expect(countDonations(1)).toBe(1);
-    expect(getCampaign(1)!.raised_paise).toBe(50000);
-    expect(listDonationsByCampaign(1)).toHaveLength(1);
+    expect(await countDonations(1)).toBe(1);
+    expect((await getCampaign(1))!.raised_paise).toBe(50000);
+    expect(await listDonationsByCampaign(1)).toHaveLength(1);
   });
 
-  it("does not double-count a spend processed twice", () => {
-    onCampaignCreated({
+  it("does not double-count a spend processed twice", async () => {
+    await onCampaignCreated({
       txHash: "0xcreate",
       logIndex: 0,
       id: 1,
@@ -66,15 +66,15 @@ describe("indexer replay idempotency", () => {
       ts: 1200,
     };
 
-    onSpendAttested(spendEvent);
-    onSpendAttested(spendEvent);
+    await onSpendAttested(spendEvent);
+    await onSpendAttested(spendEvent);
 
-    expect(countSpends(1)).toBe(1);
-    expect(getCampaign(1)!.spent_paise).toBe(18400);
+    expect(await countSpends(1)).toBe(1);
+    expect((await getCampaign(1))!.spent_paise).toBe(18400);
   });
 
-  it("distinguishes events by log_index within the same tx_hash", () => {
-    onCampaignCreated({
+  it("distinguishes events by log_index within the same tx_hash", async () => {
+    await onCampaignCreated({
       txHash: "0xcreate",
       logIndex: 0,
       id: 1,
@@ -85,7 +85,7 @@ describe("indexer replay idempotency", () => {
       ts: 1000,
     });
 
-    onDonationAttested({
+    await onDonationAttested({
       txHash: "0xmultilog",
       logIndex: 0,
       id: 1,
@@ -94,7 +94,7 @@ describe("indexer replay idempotency", () => {
       amountPaise: 1000,
       ts: 1100,
     });
-    onDonationAttested({
+    await onDonationAttested({
       txHash: "0xmultilog",
       logIndex: 1,
       id: 1,
@@ -104,7 +104,7 @@ describe("indexer replay idempotency", () => {
       ts: 1100,
     });
 
-    expect(countDonations(1)).toBe(2);
-    expect(getCampaign(1)!.raised_paise).toBe(3000);
+    expect(await countDonations(1)).toBe(2);
+    expect((await getCampaign(1))!.raised_paise).toBe(3000);
   });
 });

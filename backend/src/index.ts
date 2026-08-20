@@ -1,11 +1,10 @@
 import { migrate } from "./db/migrate.js";
-import { getDb } from "./db/client.js";
 import { createApp } from "./app.js";
 import { env, isChainConfigured } from "./config/env.js";
 import { startIndexer } from "./indexer/listener.js";
 
 async function main() {
-  migrate(getDb());
+  await migrate();
 
   const app = createApp();
   app.listen(env.PORT, () => {

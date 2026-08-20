@@ -1,0 +1,76 @@
+name: PR Checks
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+# Cancel a stale in-progress run for the same PR when new commits land.
+concurrency:
+  group: pr-checks-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  frontend-build:
+    name: Frontend build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build
+        working-directory: frontend
+        run: npm run build
+
+  backend-build:
+    name: Backend build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Build
+        working-directory: backend
+        run: npm run build
+
+  request-copilot-review:
+    name: Request Copilot code review
+    needs: [frontend-build, backend-build]
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      # Requests Copilot the same way you'd request a human reviewer. This is
+      # a best-effort trigger -- the more robust way to get every PR reviewed
+      # is the repo-level toggle at Settings > Copilot > Code review >
+      # "Automatically review new pull requests", which needs no workflow
+      # step at all. Keeping this step too means a review is requested
+      # explicitly right after both builds pass, and it won't fail the
+      # pipeline if Copilot is unavailable or already requested.
+      - name: Request review from Copilot
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/requested_reviewers" \
+            -f "reviewers[]=copilot-pull-request-reviewer[bot]"

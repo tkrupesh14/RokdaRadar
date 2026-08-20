@@ -29,19 +29,19 @@ type FeedItem =
  *       200:
  *         description: Feed page
  */
-feedRouter.get("/api/campaigns/:id/feed", (req, res) => {
+feedRouter.get("/api/campaigns/:id/feed", async (req, res) => {
   const id = Number(req.params.id);
   const limit = Math.min(Number(req.query.limit) || 20, 100);
   const offset = Number(req.query.offset) || 0;
 
-  const donations: FeedItem[] = listDonationsByCampaign(id).map((d) => ({
+  const donations: FeedItem[] = (await listDonationsByCampaign(id)).map((d) => ({
     type: "donation",
     ts: d.ts,
     txHash: d.tx_hash,
     amountPaise: d.amount_paise,
   }));
 
-  const spends: FeedItem[] = listSpendsByCampaign(id).map((s) => ({
+  const spends: FeedItem[] = (await listSpendsByCampaign(id)).map((s) => ({
     type: "spend",
     ts: s.ts,
     txHash: s.tx_hash,

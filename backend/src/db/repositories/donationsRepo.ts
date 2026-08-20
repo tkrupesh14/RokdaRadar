@@ -1,32 +1,31 @@
-import { getDb } from "../client.js";
+import { getPool, type Executor } from "../client.js";
 import type { DonationRow } from "../../types/domain.js";
 
-export function insertDonation(row: Omit<DonationRow, "id">): void {
-  getDb()
-    .prepare(
-      `INSERT OR IGNORE INTO donations (campaign_id, utr_hash, donor_ref, amount_paise, ts, tx_hash)
-       VALUES (@campaign_id, @utr_hash, @donor_ref, @amount_paise, @ts, @tx_hash)`
-    )
-    .run(row);
+export async function insertDonation(row: Omit<DonationRow, "id">, exec: Executor = getPool()): Promise<void> {
+  await exec.query(
+    `INSERT INTO donations (campaign_id, utr_hash, donor_ref, amount_paise, ts, tx_hash)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     ON CONFLICT (utr_hash) DO NOTHING`,
+    [row.campaign_id, row.utr_hash, row.donor_ref, row.amount_paise, row.ts, row.tx_hash]
+  );
 }
 
-export function listDonationsByCampaign(campaignId: number): DonationRow[] {
-  return getDb()
-    .prepare(`SELECT * FROM donations WHERE campaign_id = ? ORDER BY ts`)
-    .all(campaignId) as DonationRow[];
+export async function listDonationsByCampaign(campaignId: number, exec: Executor = getPool()): Promise<DonationRow[]> {
+  const result = await exec.query(`SELECT * FROM donations WHERE campaign_id = $1 ORDER BY ts`, [campaignId]);
+  return result.rows as DonationRow[];
 }
 
-export function countDonations(campaignId: number): number {
-  const row = getDb()
-    .prepare(`SELECT COUNT(*) as n FROM donations WHERE campaign_id = ?`)
-    .get(campaignId) as { n: number };
-  return row.n;
+export async function countDonations(campaignId: number, exec: Executor = getPool()): Promise<number> {
+  const result = await exec.query(`SELECT COUNT(*) as n FROM donations WHERE campaign_id = $1`, [campaignId]);
+  return Number(result.rows[0].n);
 }
 
-export function medianDonationPaise(campaignId: number): number {
-  const rows = getDb()
-    .prepare(`SELECT amount_paise FROM donations WHERE campaign_id = ? ORDER BY amount_paise`)
-    .all(campaignId) as { amount_paise: number }[];
+export async function medianDonationPaise(campaignId: number, exec: Executor = getPool()): Promise<number> {
+  const result = await exec.query(
+    `SELECT amount_paise FROM donations WHERE campaign_id = $1 ORDER BY amount_paise`,
+    [campaignId]
+  );
+  const rows = result.rows as { amount_paise: number }[];
   if (rows.length === 0) return 0;
   const mid = Math.floor(rows.length / 2);
   if (rows.length % 2 === 0) {
@@ -35,9 +34,8 @@ export function medianDonationPaise(campaignId: number): number {
   return rows[mid].amount_paise;
 }
 
-export function firstDonationTs(campaignId: number): number | null {
-  const row = getDb()
-    .prepare(`SELECT MIN(ts) as ts FROM donations WHERE campaign_id = ?`)
-    .get(campaignId) as { ts: number | null };
-  return row.ts ?? null;
+export async function firstDonationTs(campaignId: number, exec: Executor = getPool()): Promise<number | null> {
+  const result = await exec.query(`SELECT MIN(ts) as ts FROM donations WHERE campaign_id = $1`, [campaignId]);
+  const row = result.rows[0] as { ts: number | null } | undefined;
+  return row?.ts ?? null;
 }

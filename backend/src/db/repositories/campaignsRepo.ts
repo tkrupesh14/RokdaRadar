@@ -1,36 +1,37 @@
-import { getDb } from "../client.js";
+import { getPool, type Executor } from "../client.js";
 import type { CampaignRow } from "../../types/domain.js";
 
-export function insertCampaign(row: Omit<CampaignRow, "raised_paise" | "spent_paise" | "active">): void {
-  getDb()
-    .prepare(
-      `INSERT OR IGNORE INTO campaigns
-         (id, operator, disaster_tag, darpan_id, reg_80g, promise_hash, raised_paise, spent_paise, active, created_at, creation_tx_hash)
-       VALUES (@id, @operator, @disaster_tag, @darpan_id, @reg_80g, @promise_hash, 0, 0, 1, @created_at, @creation_tx_hash)`
-    )
-    .run(row);
+export async function insertCampaign(
+  row: Omit<CampaignRow, "raised_paise" | "spent_paise" | "active">,
+  exec: Executor = getPool()
+): Promise<void> {
+  await exec.query(
+    `INSERT INTO campaigns
+       (id, operator, disaster_tag, darpan_id, reg_80g, promise_hash, raised_paise, spent_paise, active, created_at, creation_tx_hash)
+     VALUES ($1, $2, $3, $4, $5, $6, 0, 0, 1, $7, $8)
+     ON CONFLICT (id) DO NOTHING`,
+    [row.id, row.operator, row.disaster_tag, row.darpan_id, row.reg_80g, row.promise_hash, row.created_at, row.creation_tx_hash]
+  );
 }
 
-export function incrementRaised(campaignId: number, amountPaise: number): void {
-  getDb()
-    .prepare(`UPDATE campaigns SET raised_paise = raised_paise + ? WHERE id = ?`)
-    .run(amountPaise, campaignId);
+export async function incrementRaised(campaignId: number, amountPaise: number, exec: Executor = getPool()): Promise<void> {
+  await exec.query(`UPDATE campaigns SET raised_paise = raised_paise + $1 WHERE id = $2`, [amountPaise, campaignId]);
 }
 
-export function incrementSpent(campaignId: number, amountPaise: number): void {
-  getDb()
-    .prepare(`UPDATE campaigns SET spent_paise = spent_paise + ? WHERE id = ?`)
-    .run(amountPaise, campaignId);
+export async function incrementSpent(campaignId: number, amountPaise: number, exec: Executor = getPool()): Promise<void> {
+  await exec.query(`UPDATE campaigns SET spent_paise = spent_paise + $1 WHERE id = $2`, [amountPaise, campaignId]);
 }
 
-export function deactivateCampaign(campaignId: number): void {
-  getDb().prepare(`UPDATE campaigns SET active = 0 WHERE id = ?`).run(campaignId);
+export async function deactivateCampaign(campaignId: number, exec: Executor = getPool()): Promise<void> {
+  await exec.query(`UPDATE campaigns SET active = 0 WHERE id = $1`, [campaignId]);
 }
 
-export function getCampaign(campaignId: number): CampaignRow | undefined {
-  return getDb().prepare(`SELECT * FROM campaigns WHERE id = ?`).get(campaignId) as CampaignRow | undefined;
+export async function getCampaign(campaignId: number, exec: Executor = getPool()): Promise<CampaignRow | undefined> {
+  const result = await exec.query(`SELECT * FROM campaigns WHERE id = $1`, [campaignId]);
+  return result.rows[0] as CampaignRow | undefined;
 }
 
-export function listCampaigns(): CampaignRow[] {
-  return getDb().prepare(`SELECT * FROM campaigns ORDER BY id`).all() as CampaignRow[];
+export async function listCampaigns(exec: Executor = getPool()): Promise<CampaignRow[]> {
+  const result = await exec.query(`SELECT * FROM campaigns ORDER BY id`);
+  return result.rows as CampaignRow[];
 }

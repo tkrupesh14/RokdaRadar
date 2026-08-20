@@ -9,7 +9,12 @@ const envSchema = z.object({
   PORT: z.coerce.number().default(4000),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 
-  DB_PATH: z.string().default("./data/relieftrace.sqlite"),
+  DATABASE_URL: z.string().min(1, "DATABASE_URL is required (Postgres/Supabase connection string)"),
+  // Must point at a physically separate database from DATABASE_URL --
+  // test/testDb.ts TRUNCATEs every table before each test file. See
+  // db/client.ts's getPool() for the hard runtime check that refuses to run
+  // tests at all if this is unset or equals DATABASE_URL.
+  TEST_DATABASE_URL: z.string().optional(),
   EVIDENCE_DIR: z.string().default("./evidence-store"),
 
   MONAD_TESTNET_RPC_URL: z.string().default("https://testnet-rpc.monad.xyz"),
@@ -22,6 +27,7 @@ const envSchema = z.object({
 
   WEBHOOK_HMAC_SECRET: z.string().default("change-me-dev-secret"),
   ATTESTOR_ALLOWLIST: z.string().default(""),
+  MANAGER_ALLOWLIST: z.string().default(""),
 
   // AI_PROVIDER picks which model backs the report service. Left unset, it
   // auto-selects whichever key is present (GEMINI_API_KEY preferred, since
@@ -69,6 +75,10 @@ export const env = loadEnv();
 export const oraclePrivateKey = env.ORACLE_PRIVATE_KEY || env.OPERATOR_PRIVATE_KEY;
 
 export const attestorAllowlist = env.ATTESTOR_ALLOWLIST.split(",")
+  .map((a) => a.trim().toLowerCase())
+  .filter(Boolean);
+
+export const managerAllowlist = env.MANAGER_ALLOWLIST.split(",")
   .map((a) => a.trim().toLowerCase())
   .filter(Boolean);
 

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getDb } from "../db/client.js";
+import { getPool } from "../db/client.js";
 import { isAiConfigured, isChainConfigured, resolvedAiProvider } from "../config/env.js";
 
 export const healthRouter = Router();
@@ -14,10 +14,10 @@ export const healthRouter = Router();
  *       200:
  *         description: OK
  */
-healthRouter.get("/health", (_req, res) => {
+healthRouter.get("/health", async (_req, res) => {
   let dbOk = false;
   try {
-    getDb().prepare("SELECT 1").get();
+    await getPool().query("SELECT 1");
     dbOk = true;
   } catch {
     dbOk = false;

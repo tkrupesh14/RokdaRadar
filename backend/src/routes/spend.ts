@@ -3,12 +3,12 @@ import multer from "multer";
 import { ethers } from "ethers";
 import { z } from "zod";
 import { getCampaign } from "../db/repositories/campaignsRepo.js";
-import { getOperatorContract } from "../chain/contractClient.js";
+import { insertPendingSpend, insertAiRejectedSpend } from "../db/repositories/pendingSpendsRepo.js";
 import { verifySignedRequest } from "../auth/operatorSignature.js";
 import { validateEvidenceFile, scanForPossiblePii } from "../evidence/validate.js";
-import { saveEvidence, linkEvidenceToSpend } from "../evidence/storage.js";
+import { saveEvidence } from "../evidence/storage.js";
+import { classifyEvidence } from "../ai/evidenceClassifier.js";
 import { CATEGORIES, EVIDENCE_MAX_BYTES } from "../config/constants.js";
-import { env } from "../config/env.js";
 
 export const spendRouter = Router();
 
@@ -29,7 +29,13 @@ const spendBodySchema = z.object({
  * @openapi
  * /api/campaigns/{id}/spend:
  *   post:
- *     summary: Operator records a spend
+ *     summary: Operator submits a spend for review
+ *     description: >
+ *       Evidence is first screened by Gemini ("is this a bill/receipt, or something unrelated?") --
+ *       evidence that clearly isn't a payment record is rejected immediately, before anything is
+ *       stored or written on-chain. Evidence that passes is stored and queued as a pending spend;
+ *       it is NOT yet attested on-chain. A campaign manager must call
+ *       POST /api/pending-spends/{id}/approve (which performs the actual attestSpend) or /reject.
  *     tags: [Spends]
  *     parameters:
  *       - in: path
@@ -43,21 +49,23 @@ const spendBodySchema = z.object({
  *           schema:
  *             $ref: '#/components/schemas/SpendRequest'
  *     responses:
- *       201:
- *         description: Spend attested
+ *       202:
+ *         description: Evidence accepted by the AI screen; queued for manager review
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/SpendResponse'
+ *               $ref: '#/components/schemas/PendingSpendResponse'
  *       401:
  *         description: Operator signature invalid
  *       422:
- *         description: Evidence invalid or contract reverted
+ *         description: Evidence invalid, or the AI screen rejected it as not a bill/receipt
+ *       503:
+ *         description: AI evidence screen unavailable (GEMINI_API_KEY not configured, or the call failed)
  */
 spendRouter.post("/api/campaigns/:id/spend", upload.single("evidenceFile"), async (req, res, next) => {
   try {
     const campaignId = Number(req.params.id);
-    const campaign = getCampaign(campaignId);
+    const campaign = await getCampaign(campaignId);
     if (!campaign) {
       res.status(404).json({ error: "NOT_FOUND", detail: `campaign ${campaignId} not found` });
       return;
@@ -98,53 +106,68 @@ spendRouter.post("/api/campaigns/:id/spend", upload.single("evidenceFile"), asyn
       return;
     }
 
-    const { cid } = saveEvidence(campaignId, file.buffer, file.mimetype);
-
-    // Raw vendorRef is hashed server-side and never stored/logged (LLD 4.1 step 3).
-    const vendorRefHash = ethers.keccak256(ethers.toUtf8Bytes(body.vendorRef));
-    const categoryIndex = CATEGORIES.indexOf(body.category);
-    const contract = getOperatorContract();
-
-    let tx;
+    let classification;
     try {
-      tx = await contract.attestSpend(
-        campaignId,
-        ethers.ZeroHash,
-        vendorRefHash,
-        body.amountPaise,
-        categoryIndex,
-        cid,
-        body.memo
-      );
+      classification = await classifyEvidence(file.buffer, file.mimetype);
     } catch (err: any) {
-      res.status(422).json({
-        error: err?.shortMessage ?? "The contract rejected this transaction.",
-        code: "CONTRACT_REVERT",
-        detail: err?.shortMessage ?? err?.message ?? "unknown revert",
+      // Covers both "GEMINI_API_KEY is not configured" (thrown synchronously
+      // by evidenceClassifier.ts's getClient()) and any live API failure.
+      res.status(503).json({
+        error: "AI_SERVICE_UNAVAILABLE",
+        detail: err?.message ?? "Evidence classification failed",
       });
       return;
     }
 
-    const receipt = await tx.wait();
-    const parsed = receipt.logs
-      .map((log: any) => {
-        try {
-          return contract.interface.parseLog(log);
-        } catch {
-          return null;
-        }
-      })
-      .find((p: any) => p?.name === "SpendAttested");
-    const spendRef = parsed?.args?.spendRef as string | undefined;
+    // Raw vendorRef is hashed server-side and never stored/logged (LLD 4.1 step 3).
+    const vendorRefHash = ethers.keccak256(ethers.toUtf8Bytes(body.vendorRef));
 
-    if (spendRef) linkEvidenceToSpend(campaignId, cid, spendRef, file.mimetype);
+    if (!classification.isBill) {
+      // Evidence is kept, not discarded: a rejected submission is retained
+      // as proof of what was actually uploaded and by which operator
+      // address, in case of a pattern of fraudulent submissions.
+      const { cid: rejectedCid } = saveEvidence(campaignId, file.buffer, file.mimetype);
+      await insertAiRejectedSpend({
+        campaign_id: campaignId,
+        vendor_ref_hash: vendorRefHash,
+        amount_paise: body.amountPaise,
+        category: body.category,
+        memo: body.memo || null,
+        evidence_cid: rejectedCid,
+        evidence_mimetype: file.mimetype,
+        ai_reason: classification.reason || null,
+        operator_address: body.authAddress,
+        submitted_at: Math.floor(Date.now() / 1000),
+      });
 
-    res.status(201).json({
-      spendRef,
-      txHash: receipt.hash,
-      explorerUrl: `${env.MONAD_EXPLORER_TX_BASE_URL}/${receipt.hash}`,
+      res.status(422).json({
+        error: "EVIDENCE_REJECTED",
+        code: "AI_EVIDENCE_REJECTED",
+        detail: classification.reason || "This doesn't look like a bill or receipt.",
+      });
+      return;
+    }
+
+    const { cid } = saveEvidence(campaignId, file.buffer, file.mimetype);
+
+    const pendingSpendId = await insertPendingSpend({
+      campaign_id: campaignId,
+      vendor_ref_hash: vendorRefHash,
+      amount_paise: body.amountPaise,
+      category: body.category,
+      memo: body.memo || null,
+      evidence_cid: cid,
+      evidence_mimetype: file.mimetype,
+      ai_reason: classification.reason || null,
+      operator_address: body.authAddress,
+      submitted_at: Math.floor(Date.now() / 1000),
+    });
+
+    res.status(202).json({
+      pendingSpendId,
+      status: "pending_review",
       evidenceCID: cid,
-      status: "confirmed",
+      aiReason: classification.reason,
     });
   } catch (err) {
     next(err);

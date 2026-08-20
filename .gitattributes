@@ -1,0 +1,21 @@
+# Normalize all text files to LF on checkout and in the repo, regardless of
+# which OS/tool (Windows git, WSL git) touches them -- this repo previously
+# had CRLF vs LF churn from being edited via both. `text=auto` lets git's
+# own binary-detection heuristic skip anything it doesn't think is text;
+# the explicit `binary` rules below are a safety net for known binary types.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.pdf binary
+*.sqlite binary
+*.sqlite3 binary
+*.zip binary
+*.gz binary

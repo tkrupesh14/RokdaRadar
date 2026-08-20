@@ -11,7 +11,7 @@ export class CampaignNotFoundError extends Error {}
 export class RefreshRateLimitedError extends Error {}
 
 async function generateAndValidate(campaignId: number): Promise<Report> {
-  const aggregate = computeAggregate(campaignId);
+  const aggregate = await computeAggregate(campaignId);
   if (!aggregate) throw new CampaignNotFoundError(`campaign ${campaignId} not found`);
 
   for (const strict of [false, true]) {
