@@ -95,6 +95,8 @@ export default function DonateClient({ campaign }: { campaign: CampaignDetail })
                   type="button"
                   className="chip-btn"
                   onClick={() => pickChip(amt)}
+                  aria-pressed={active}
+                  aria-label={`Donate ${fmtINR(amt)}`}
                   style={{
                     padding: "10px 4px",
                     borderRadius: 999,
@@ -115,10 +117,12 @@ export default function DonateClient({ campaign }: { campaign: CampaignDetail })
             })}
           </div>
           <div className="field" style={{ marginTop: 14 }}>
-            <label>Or enter an amount</label>
+            <label htmlFor="custom-amount">Or enter an amount</label>
             <input
+              id="custom-amount"
               className="input"
               type="number"
+              inputMode="numeric"
               min={1}
               placeholder="₹"
               value={customAmount}

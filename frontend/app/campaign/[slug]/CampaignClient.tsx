@@ -481,6 +481,8 @@ export default function CampaignClient({
                       background: "transparent", color: "var(--color-accent-2-700)", fontSize: 10, lineHeight: 1,
                       cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", padding: 0,
                     }}
+                    onFocus={(e) => { e.currentTarget.style.outline = "2px solid var(--color-accent)"; e.currentTarget.style.outlineOffset = "2px"; }}
+                    onBlur={(e) => { e.currentTarget.style.outline = "none"; }}
                   >
                     i
                   </button>
@@ -525,9 +527,20 @@ export default function CampaignClient({
       )}
 
       {showTrustInfo && campaign.trustScoreBreakdown && (
-        <div className="dialog-backdrop" style={{ position: "fixed", inset: 0, zIndex: 50 }} onClick={() => setShowTrustInfo(false)}>
-          <div className="dialog" onClick={(e) => e.stopPropagation()}>
-            <h3 className="dialog-title">How this score is calculated</h3>
+        <div
+          className="dialog-backdrop"
+          style={{ position: "fixed", inset: 0, zIndex: 50 }}
+          onClick={() => setShowTrustInfo(false)}
+          onKeyDown={(e) => { if (e.key === "Escape") setShowTrustInfo(false); }}
+        >
+          <div
+            className="dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="trust-info-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 id="trust-info-title" className="dialog-title">How this score is calculated</h3>
             <div className="dialog-body" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               <p style={{ margin: 0 }}>
                 Computed server-side from on-chain data, never by AI. The published formula has 5 weighted
