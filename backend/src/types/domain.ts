@@ -58,6 +58,15 @@ export type AnomalyCandidate = {
   value: number | string;
 };
 
+// Partial-by-design: only the 2 of 5 LLD Section 8 terms with real backing
+// data are computed. See config/constants.ts's TRUST_SCORE_* comment.
+export type TrustScoreBreakdown = {
+  evidencedSpendPct: number;
+  deliveryAttestedPct: number;
+  weights: { evidencedSpendPct: number; deliveryAttestedPct: number };
+  pending: readonly string[];
+};
+
 export type CampaignAggregate = {
   campaignId: number;
   disasterTag: string;
@@ -71,7 +80,10 @@ export type CampaignAggregate = {
   vendorConcentration: VendorConcentrationEntry[];
   medianDonationPaise: number;
   medianDisbursementLatencyHours: number;
+  evidencedSpendPct: number;
   deliveryAttestedPct: number;
+  trustScore: number;
+  trustScoreBreakdown: TrustScoreBreakdown;
   anomalyCandidates: AnomalyCandidate[];
   txIndex: Record<string, string>;
 };

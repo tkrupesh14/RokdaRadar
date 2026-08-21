@@ -25,6 +25,16 @@ export type ApiCampaign = {
 export type ApiVendorConcentration = { vendorRef: string; sharePct: number; spendCount: number };
 export type ApiAnomalyCandidate = { spendRef: string; reason: string; value: number | string };
 
+// Partial by design (LLD Section 8): only 2 of the formula's 5 terms have
+// real backing data today. `pending` lists the rest so the UI can disclose
+// the score is provisional rather than implying it's the full formula.
+export type ApiTrustScoreBreakdown = {
+  evidencedSpendPct: number;
+  deliveryAttestedPct: number;
+  weights: { evidencedSpendPct: number; deliveryAttestedPct: number };
+  pending: string[];
+};
+
 export type ApiAggregate = {
   campaignId: number;
   disasterTag: string;
@@ -38,7 +48,10 @@ export type ApiAggregate = {
   vendorConcentration: ApiVendorConcentration[];
   medianDonationPaise: number;
   medianDisbursementLatencyHours: number;
+  evidencedSpendPct: number;
   deliveryAttestedPct: number;
+  trustScore: number;
+  trustScoreBreakdown: ApiTrustScoreBreakdown;
   anomalyCandidates: ApiAnomalyCandidate[];
   txIndex: Record<string, string>;
 };

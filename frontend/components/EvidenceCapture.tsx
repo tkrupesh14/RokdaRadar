@@ -36,6 +36,7 @@ export default function EvidenceCapture({
 }) {
   const [mobile, setMobile] = useState<boolean | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [dropHover, setDropHover] = useState(false);
 
   const [phase, setPhase] = useState<DesktopPhase>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -136,7 +137,7 @@ export default function EvidenceCapture({
 
   if (value) {
     return (
-      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: 12, borderRadius: "var(--radius-md)", background: "var(--color-surface)" }}>
+      <div className="pop-scale" style={{ display: "flex", alignItems: "center", gap: 12, padding: 12, borderRadius: "var(--radius-md)", background: "var(--color-surface)" }}>
         {previewUrl ? (
           // eslint-disable-next-line @next/next/no-img-element -- transient object URL for a freshly-captured/picked file, not worth Next/Image's optimizer.
           <img src={previewUrl} alt="Evidence preview" style={{ width: 44, height: 44, borderRadius: "var(--radius-sm)", objectFit: "cover" }} />
@@ -160,15 +161,18 @@ export default function EvidenceCapture({
           width: "100%",
           padding: 22,
           borderRadius: "var(--radius-md)",
-          border: "1.5px dashed var(--color-divider)",
-          background: "transparent",
+          border: `1.5px dashed ${dropHover ? "var(--color-accent)" : "var(--color-divider)"}`,
+          background: dropHover ? "var(--color-accent-100)" : "transparent",
           cursor: "pointer",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
           gap: 8,
           color: "var(--color-text)",
+          transition: "border-color 160ms var(--ease-out), background 160ms var(--ease-out)",
         }}
+        onMouseEnter={() => setDropHover(true)}
+        onMouseLeave={() => setDropHover(false)}
       >
         <span style={{ fontSize: 22 }}>📷</span>
         <span style={{ fontSize: 13.5 }}>Tap to open camera</span>

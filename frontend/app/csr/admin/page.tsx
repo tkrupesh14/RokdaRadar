@@ -83,7 +83,7 @@ export default function CsrTeamAdmin() {
   if (!loggedIn) {
     return (
       <div style={{ fontFamily: "var(--font-body)", minHeight: "100vh", background: "var(--color-bg)", color: "var(--color-text)", fontSize: 13.5, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-        <div className="card elev-lg" style={{ width: "100%", maxWidth: 380, padding: 32 }}>
+        <div className="card elev-lg fade-in-up" style={{ width: "100%", maxWidth: 380, padding: 32 }}>
           <div style={{ fontSize: 12, letterSpacing: "0.06em", textTransform: "uppercase", fontWeight: 600, color: "var(--color-accent-700)", marginBottom: 6 }}>
             RokdaRadar for CSR
           </div>
@@ -146,6 +146,7 @@ export default function CsrTeamAdmin() {
                   color: active ? "var(--color-accent-700)" : "var(--color-text)",
                   borderBottom: `2px solid ${active ? "var(--color-accent)" : "transparent"}`,
                   marginBottom: -1,
+                  transition: "color 160ms var(--ease-out), border-color 200ms var(--ease-out)",
                 }}
               >
                 {t.label}
@@ -156,9 +157,9 @@ export default function CsrTeamAdmin() {
 
         {/* TAB: New Campaign */}
         {activeTab === "newCampaign" && (
-          <section style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 560 }}>
+          <section className="fade-in-up" style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 560 }}>
             {campaignCreated && (
-              <div className="card elev-sm" style={{ padding: "14px 18px", background: "var(--color-accent-2-100)", color: "var(--color-accent-2-800)" }}>
+              <div className="card elev-sm banner-in" style={{ padding: "14px 18px", background: "var(--color-accent-2-100)", color: "var(--color-accent-2-800)" }}>
                 ✓ Campaign created and added to the portfolio.
               </div>
             )}
@@ -219,8 +220,18 @@ export default function CsrTeamAdmin() {
               ) : (
                 <button
                   type="button"
+                  className="dashed-upload"
                   onClick={() => setCCoverAttached(true)}
-                  style={{ width: "100%", padding: 16, borderRadius: "var(--radius-md)", border: "1.5px dashed var(--color-divider)", background: "transparent", cursor: "pointer", color: "var(--color-text)" }}
+                  style={{
+                    width: "100%",
+                    padding: 16,
+                    borderRadius: "var(--radius-md)",
+                    border: "1.5px dashed var(--color-divider)",
+                    background: "transparent",
+                    cursor: "pointer",
+                    color: "var(--color-text)",
+                    transition: "border-color 160ms var(--ease-out), background 160ms var(--ease-out)",
+                  }}
                 >
                   Attach a cover photo
                 </button>
@@ -235,6 +246,7 @@ export default function CsrTeamAdmin() {
                 <div style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "color-mix(in srgb, var(--color-text) 60%, transparent)", marginBottom: 10 }}>
                   Recently created
                 </div>
+                <div className="stagger-list">
                 {newCampaigns.map((nc, i) => (
                   <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderTop: "1px solid var(--color-divider)", fontSize: 13 }}>
                     <span>{nc.name}</span>
@@ -243,6 +255,7 @@ export default function CsrTeamAdmin() {
                     </span>
                   </div>
                 ))}
+                </div>
               </div>
             )}
           </section>
@@ -250,7 +263,7 @@ export default function CsrTeamAdmin() {
 
         {/* TAB: Operators */}
         {activeTab === "operators" && (
-          <section style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+          <section className="fade-in-up" style={{ display: "flex", flexDirection: "column", gap: 24 }}>
             <div className="card" style={{ padding: 18, maxWidth: 480 }}>
               <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Add an operator</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -263,7 +276,7 @@ export default function CsrTeamAdmin() {
             </div>
 
             {generatedCred && (
-              <div className="card elev-sm" style={{ padding: "16px 18px", background: "var(--color-accent-2-100)", maxWidth: 480 }}>
+              <div className="card elev-sm banner-in" style={{ padding: "16px 18px", background: "var(--color-accent-2-100)", maxWidth: 480 }}>
                 <div style={{ fontSize: 13, color: "var(--color-accent-2-800)" }}>Share these with {generatedCred.name} — shown only once.</div>
                 <div style={{ display: "flex", gap: 20, marginTop: 8, fontFamily: "var(--font-heading)", fontSize: 17, color: "var(--color-accent-2-800)" }}>
                   <span>ID: {generatedCred.id}</span>
@@ -276,6 +289,7 @@ export default function CsrTeamAdmin() {
               <div style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "color-mix(in srgb, var(--color-text) 60%, transparent)", marginBottom: 10 }}>
                 Operators
               </div>
+              <div className="stagger-list">
               {operators.map((op) => (
                 <div key={op.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 0", borderTop: "1px solid var(--color-divider)" }}>
                   <div style={{ flex: 1 }}>
@@ -287,13 +301,14 @@ export default function CsrTeamAdmin() {
                   <span className="tag tag-outline">{op.campaigns.length} campaigns</span>
                 </div>
               ))}
+              </div>
             </div>
           </section>
         )}
 
         {/* TAB: Assignments */}
         {activeTab === "assign" && (
-          <section style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+          <section className="fade-in-up" style={{ display: "flex", flexDirection: "column", gap: 24 }}>
             <div className="card" style={{ padding: 18, maxWidth: 520 }}>
               <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Assign an operator to campaigns</div>
               <div className="field" style={{ marginBottom: 12 }}>
@@ -316,6 +331,7 @@ export default function CsrTeamAdmin() {
                       <button
                         key={cc.id}
                         type="button"
+                        className="chip-btn"
                         onClick={() =>
                           setAssignSelected((sel) => (active ? sel.filter((x) => x !== cc.id) : [...sel, cc.id]))
                         }
@@ -327,6 +343,7 @@ export default function CsrTeamAdmin() {
                           color: active ? "var(--color-accent-800)" : "var(--color-text)",
                           fontSize: 12.5,
                           cursor: "pointer",
+                          transition: "background 160ms var(--ease-out), border-color 160ms var(--ease-out), transform 120ms var(--ease-out)",
                         }}
                       >
                         {cc.name}
@@ -344,6 +361,7 @@ export default function CsrTeamAdmin() {
               <div style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "color-mix(in srgb, var(--color-text) 60%, transparent)", marginBottom: 10 }}>
                 Current assignments
               </div>
+              <div className="stagger-list">
               {operators.map((op) => (
                 <div key={op.id} style={{ padding: "12px 0", borderTop: "1px solid var(--color-divider)" }}>
                   <div style={{ fontSize: 13.5, fontWeight: 600, marginBottom: 6 }}>{op.name}</div>
@@ -359,13 +377,14 @@ export default function CsrTeamAdmin() {
                   </div>
                 </div>
               ))}
+              </div>
             </div>
           </section>
         )}
 
         {/* TAB: Progress */}
         {activeTab === "progress" && (
-          <section>
+          <section className="fade-in-up">
             <table className="table">
               <thead>
                 <tr>
@@ -397,6 +416,12 @@ export default function CsrTeamAdmin() {
           </section>
         )}
       </div>
+
+      <style>{`
+        .dashed-upload:hover { border-color: var(--color-accent); background: color-mix(in srgb, var(--color-accent) 6%, transparent); }
+        .chip-btn:not(:disabled):hover { border-color: var(--color-accent); }
+        .chip-btn:not(:disabled):active { transform: scale(0.96); }
+      `}</style>
     </div>
   );
 }

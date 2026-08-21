@@ -6,6 +6,13 @@ export type LedgerRow = {
   hash: string;
 };
 
+export type TrustScoreBreakdown = {
+  evidencedSpendPct: number;
+  deliveryAttestedPct: number;
+  weights: { evidencedSpendPct: number; deliveryAttestedPct: number };
+  pending: string[];
+};
+
 export type CampaignDetail = {
   slug: string;
   org: string;
@@ -15,6 +22,13 @@ export type CampaignDetail = {
   raised: number;
   spent: number;
   trustScore: number;
+  /**
+   * Present only when trustScore came from the real backend formula (LLD
+   * Section 8, partial -- see ApiTrustScoreBreakdown). Undefined means
+   * trustScore above is static mock content, not a computed score --
+   * callers must not render the methodology disclosure in that case.
+   */
+  trustScoreBreakdown?: TrustScoreBreakdown;
   categories: { name: string; pct: number; color: string }[];
   story: string[];
   ledger: LedgerRow[];

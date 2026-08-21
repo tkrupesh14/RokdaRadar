@@ -188,7 +188,7 @@ export default function OperatorConsole() {
   if (!loggedIn) {
     return (
       <div style={{ fontFamily: "var(--font-body)", minHeight: "100vh", background: "var(--color-neutral-900)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-        <div className="card elev-lg" style={{ width: "100%", maxWidth: 360, padding: 32 }}>
+        <div className="card elev-lg fade-in-up" style={{ width: "100%", maxWidth: 360, padding: 32 }}>
           <div style={{ fontSize: 12, letterSpacing: "0.06em", textTransform: "uppercase", fontWeight: 600, color: "var(--color-accent-700)", marginBottom: 6 }}>
             RokdaRadar — internal access
           </div>
@@ -242,7 +242,7 @@ export default function OperatorConsole() {
 
       <div style={{ maxWidth: 720, margin: "0 auto", padding: "32px 20px 96px" }}>
         {justSubmitted !== null && (
-          <div className="card elev-sm" style={{ padding: "18px 20px", marginBottom: 24, background: "var(--color-accent-2-100)", display: "flex", gap: 10, alignItems: "center" }}>
+          <div className="card elev-sm banner-in" style={{ padding: "18px 20px", marginBottom: 24, background: "var(--color-accent-2-100)", display: "flex", gap: 10, alignItems: "center" }}>
             <span style={{ fontSize: 18 }}>✓</span>
             <span style={{ fontSize: 14, color: "var(--color-accent-2-800)" }}>Spend recorded with evidence — syncing to the ledger.</span>
           </div>
@@ -268,7 +268,7 @@ export default function OperatorConsole() {
 
           <div className="field">
             <label>Category</label>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8 }}>
+            <div className="op-category-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8 }}>
               {CATEGORY_NAMES.map((name) => {
                 const active = category === name;
                 return (
@@ -286,6 +286,8 @@ export default function OperatorConsole() {
                       fontWeight: 600,
                       fontSize: 13.5,
                       cursor: "pointer",
+                      transition: "border-color 160ms var(--ease-out), background 160ms var(--ease-out), color 160ms var(--ease-out), transform 120ms var(--ease-out)",
+                      transform: active ? "scale(1.03)" : "scale(1)",
                     }}
                   >
                     {name}
@@ -329,7 +331,7 @@ export default function OperatorConsole() {
         </div>
 
         <h2 style={{ fontFamily: "var(--font-heading)", fontWeight: 400, fontSize: 22, margin: "48px 0 16px" }}>Recent spends</h2>
-        <div style={{ display: "flex", flexDirection: "column" }}>
+        <div className="stagger-list" style={{ display: "flex", flexDirection: "column" }}>
           {spends.map((s) => (
             <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0", borderTop: "1px solid var(--color-divider)" }}>
               <span className="tag tag-neutral">{s.category}</span>
@@ -365,11 +367,11 @@ export default function OperatorConsole() {
 
       {toast && (
         <div
+          className="toast-in"
           style={{
             position: "fixed",
             bottom: 24,
             left: "50%",
-            transform: "translateX(-50%)",
             background: "var(--color-neutral-900)",
             color: "var(--color-neutral-100)",
             padding: "14px 20px",

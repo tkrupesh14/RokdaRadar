@@ -137,6 +137,22 @@ describe("aggregate correctness against a hand-computed fixture", () => {
     expect(agg.deliveryAttestedPct).toBeCloseTo(100 / 3, 1);
   });
 
+  it("computes evidencedSpendPct = 100 when every fixture spend has an evidence CID", async () => {
+    const agg = (await computeAggregate(1))!;
+    expect(agg.evidencedSpendPct).toBe(100);
+  });
+
+  it("computes trustScore from only the 2 real terms, reweighted 30:25 -> 6/11:5/11", async () => {
+    const agg = (await computeAggregate(1))!;
+    // evidencedSpendPct=100, deliveryAttestedPct=100/3 -> 6/11*100 + 5/11*(100/3) = 69.7 -> rounds to 70
+    expect(agg.trustScore).toBe(70);
+    expect(agg.trustScoreBreakdown.pending).toEqual([
+      "reconciliationMatchPct",
+      "promiseAlignmentScore",
+      "attestorDiversityScore",
+    ]);
+  });
+
   it("builds txIndex keyed by spendRef and by campaignId for the creation tx", async () => {
     const agg = (await computeAggregate(1))!;
     expect(agg.txIndex["0xspendA"]).toBe("0xspendA");

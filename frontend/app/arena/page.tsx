@@ -160,6 +160,7 @@ export default function ArenaMode() {
                 borderLeft: "7px solid transparent",
                 borderRight: "7px solid transparent",
                 borderBottom: "9px solid #fff",
+                transition: "left 500ms cubic-bezier(0.34,1.56,0.64,1)",
               }}
             />
           </div>
@@ -176,17 +177,18 @@ export default function ArenaMode() {
 
         {/* Controls */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
-          <button type="button" onClick={onPrev} style={{ border: "none", background: "#1A1025", color: "#fff", borderRadius: 999, padding: "8px 16px", fontSize: 13, cursor: "pointer" }}>
+          <button type="button" className="arena-btn" onClick={onPrev} style={{ border: "none", background: "#1A1025", color: "#fff", borderRadius: 999, padding: "8px 16px", fontSize: 13, cursor: "pointer" }}>
             ◀ Prev
           </button>
           <button
             type="button"
+            className="arena-btn arena-btn-primary"
             onClick={() => setPlaying((p) => !p)}
             style={{ border: "none", background: "#E6357F", color: "#fff", borderRadius: 999, padding: "8px 20px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
           >
             {playing ? "⏸ Pause" : "▶ Play"}
           </button>
-          <button type="button" onClick={onNext} style={{ border: "none", background: "#1A1025", color: "#fff", borderRadius: 999, padding: "8px 16px", fontSize: 13, cursor: "pointer" }}>
+          <button type="button" className="arena-btn" onClick={onNext} style={{ border: "none", background: "#1A1025", color: "#fff", borderRadius: 999, padding: "8px 16px", fontSize: 13, cursor: "pointer" }}>
             Next ▶
           </button>
           <span style={{ marginLeft: "auto", fontFamily: "var(--arena-font-mono), monospace", fontSize: 12, color: "#5A4A57" }}>
@@ -217,7 +219,7 @@ export default function ArenaMode() {
               <div style={{ fontFamily: "var(--arena-font-display), sans-serif", fontWeight: 700, fontSize: 14, marginBottom: 10, color: "#5A4A57" }}>Ho Raha Hai</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 {step.active.map((card, i) => (
-                  <div key={i} className="arena-pulse" style={{ background: "#fff", borderRadius: 14, padding: 16, border: "2px solid #E6357F" }}>
+                  <div key={i} className="arena-pulse arena-pop" style={{ background: "#fff", borderRadius: 14, padding: 16, border: "2px solid #E6357F", animationDelay: `${i * 80}ms` }}>
                     <div style={{ fontFamily: "var(--arena-font-display), sans-serif", fontWeight: 700, fontSize: 14.5 }}>{card.agent}</div>
                     <div style={{ fontFamily: "var(--arena-font-mono), monospace", fontSize: 13, color: "#5A4A57", marginTop: 4 }}>
                       {card.action} · {fmtINR(card.amount)}
@@ -230,7 +232,19 @@ export default function ArenaMode() {
               <div style={{ fontFamily: "var(--arena-font-display), sans-serif", fontWeight: 700, fontSize: 14, marginBottom: 10, color: "#5A4A57" }}>Ho Gaya</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 {step.settled.map((card, i) => (
-                  <div key={i} style={{ position: "relative", background: "#fff", borderRadius: 14, padding: 16, borderLeft: `5px solid ${OUTCOME_COLOR[card.outcome!]}`, overflow: "hidden" }}>
+                  <div
+                    key={i}
+                    className="arena-pop"
+                    style={{
+                      position: "relative",
+                      background: "#fff",
+                      borderRadius: 14,
+                      padding: 16,
+                      borderLeft: `5px solid ${OUTCOME_COLOR[card.outcome!]}`,
+                      overflow: "hidden",
+                      animationDelay: `${i * 80}ms`,
+                    }}
+                  >
                     <div style={{ fontFamily: "var(--arena-font-display), sans-serif", fontWeight: 700, fontSize: 14.5 }}>{card.agent}</div>
                     <div style={{ fontFamily: "var(--arena-font-mono), monospace", fontSize: 13, color: "#5A4A57", marginTop: 4 }}>
                       {card.action} · {fmtINR(card.amount)}
@@ -273,6 +287,15 @@ export default function ArenaMode() {
       <style>{`
         @keyframes arena-pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(230,53,127,0.35); } 50% { box-shadow: 0 0 0 10px rgba(230,53,127,0); } }
         .arena-pulse { animation: arena-pulse 1.6s infinite; }
+        @keyframes arena-pop { from { opacity: 0; transform: translateY(10px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        .arena-pop { animation: arena-pop 360ms cubic-bezier(0.34,1.56,0.64,1) both; }
+        .arena-btn { transition: transform 150ms ease, filter 150ms ease, box-shadow 150ms ease; }
+        .arena-btn:hover { filter: brightness(1.12); transform: translateY(-1px); }
+        .arena-btn:active { transform: translateY(0) scale(0.95); }
+        .arena-btn-primary:hover { box-shadow: 0 4px 14px rgba(230,53,127,0.4); }
+        @media (prefers-reduced-motion: reduce) {
+          .arena-pulse, .arena-pop { animation: none !important; }
+        }
       `}</style>
     </div>
   );

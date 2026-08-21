@@ -32,11 +32,14 @@ function fmtDate(tsSeconds: number): string {
 /**
  * Overlays real backend data (aggregate, feed, AI report) onto a static mock
  * campaign, for any mock entry with a `backendId`. Every field the backend
- * doesn't model at all -- org, story, updates, mapLabel, donor names,
- * trustScore (trustScore is a published MVP2 formula, LLD Section 8, not yet
- * implemented) -- is left as static content. Falls back to the untouched
- * mock silently if the backend is unreachable or the campaign doesn't exist
- * there yet (expected until a real on-chain campaign is created).
+ * doesn't model at all -- org, story, updates, mapLabel, donor names -- is
+ * left as static content. trustScore overlays too now (LLD Section 8,
+ * partial: 2 of 5 terms, see ApiTrustScoreBreakdown), with
+ * trustScoreBreakdown attached so the UI can disclose that it's provisional.
+ * Falls back to the untouched mock silently if the backend is unreachable or
+ * the campaign doesn't exist there yet (expected until a real on-chain
+ * campaign is created) -- in that case trustScoreBreakdown stays undefined
+ * and the static mock trustScore renders with no methodology disclosure.
  */
 export async function overlayBackendData(
   base: CampaignDetail
@@ -88,6 +91,8 @@ export async function overlayBackendData(
       ...base,
       raised: paiseToRupees(aggregate.raisedPaise),
       spent: paiseToRupees(aggregate.spentPaise),
+      trustScore: aggregate.trustScore,
+      trustScoreBreakdown: aggregate.trustScoreBreakdown,
       categories,
       ledger: ledger.length > 0 ? ledger : base.ledger,
       donors: donors.length > 0 ? donors : base.donors,
