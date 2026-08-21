@@ -19,6 +19,19 @@ export function isWalletAvailable(): boolean {
   return typeof window !== "undefined" && !!window.ethereum;
 }
 
+function isMobileUserAgent(): boolean {
+  return typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+}
+
+// On mobile, a regular browser tab (Safari/Chrome) never gets window.ethereum
+// injected even if MetaMask is installed -- only MetaMask's own in-app
+// browser injects it. The fix is to hand off to that in-app browser via
+// MetaMask's universal link, which reopens the current page inside it.
+function redirectToMetaMaskInAppBrowser(): void {
+  const here = window.location.href.replace(/^https?:\/\//, "");
+  window.location.href = `https://metamask.app.link/dapp/${here}`;
+}
+
 // Monad testnet (chain id 10143 = 0x279f), matching backend/.env.example's
 // MONAD_TESTNET_* defaults. MetaMask defaults every connected site to
 // whatever network it's currently pointed at (Ethereum Mainnet, most
@@ -57,6 +70,11 @@ async function ensureMonadTestnet(): Promise<void> {
 
 export async function connectWallet(): Promise<string> {
   if (!window.ethereum) {
+    if (isMobileUserAgent()) {
+      redirectToMetaMaskInAppBrowser();
+      // Navigation is async; the page unloads shortly after this returns.
+      throw new Error("Opening MetaMask...");
+    }
     throw new Error("No wallet extension found. Install MetaMask to continue.");
   }
   const accounts = (await window.ethereum.request({ method: "eth_requestAccounts" })) as string[];
