@@ -97,7 +97,25 @@ const definition = {
           },
           medianDonationPaise: { type: "integer" },
           medianDisbursementLatencyHours: { type: "number" },
+          evidencedSpendPct: { type: "number" },
           deliveryAttestedPct: { type: "number" },
+          trustScore: {
+            type: "integer",
+            description:
+              "0-100. Partial by design: only 2 of the 5 LLD Section 8 terms are computed today (see trustScoreBreakdown.pending) -- reweighted so the two real terms sum to 1.",
+          },
+          trustScoreBreakdown: {
+            type: "object",
+            properties: {
+              evidencedSpendPct: { type: "number" },
+              deliveryAttestedPct: { type: "number" },
+              weights: {
+                type: "object",
+                properties: { evidencedSpendPct: { type: "number" }, deliveryAttestedPct: { type: "number" } },
+              },
+              pending: { type: "array", items: { type: "string" } },
+            },
+          },
           anomalyCandidates: {
             type: "array",
             items: {

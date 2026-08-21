@@ -47,6 +47,7 @@ export default function Home() {
             }}
           />
           <h1
+            className="fade-in-up"
             style={{
               fontFamily: "var(--font-heading)",
               fontWeight: 400,
@@ -59,18 +60,20 @@ export default function Home() {
             <span style={{ display: "block" }}>and proof it got there.</span>
           </h1>
           <p
+            className="fade-in-up"
             style={{
               fontSize: 17,
               lineHeight: "28px",
               maxWidth: "54ch",
               margin: "26px 0 0",
               color: "color-mix(in srgb, var(--color-text) 82%, transparent)",
+              animationDelay: "90ms",
             }}
           >
             Money moves via UPI, the way it always has. Only the proof — every receipt, every rupee spent — is
             recorded on Monad. No cryptocurrency changes hands.
           </p>
-          <div style={{ display: "flex", gap: 13, flexWrap: "wrap", marginTop: 26 }}>
+          <div className="fade-in-up" style={{ display: "flex", gap: 13, flexWrap: "wrap", marginTop: 26, animationDelay: "160ms" }}>
             <Link className="btn btn-primary" href="/campaign/wayanad-landslide-relief-fund">
               Donate to a campaign
             </Link>
@@ -86,6 +89,7 @@ export default function Home() {
           aria-label="RokdaRadar, by the numbers"
         >
           <div
+            className="stat-orb fade-in-up"
             style={{
               position: "absolute",
               borderRadius: "50%",
@@ -98,6 +102,7 @@ export default function Home() {
               placeContent: "center",
               textAlign: "center",
               padding: 24,
+              animationDelay: "40ms",
             }}
           >
             <p style={{ fontFamily: "var(--font-heading)", fontWeight: 400, fontSize: 40, margin: 0, color: "var(--color-accent-700)" }}>
@@ -117,6 +122,7 @@ export default function Home() {
             </p>
           </div>
           <div
+            className="stat-orb fade-in-up"
             style={{
               position: "absolute",
               borderRadius: "50%",
@@ -129,6 +135,7 @@ export default function Home() {
               placeContent: "center",
               textAlign: "center",
               padding: 20,
+              animationDelay: "140ms",
             }}
           >
             <p style={{ fontFamily: "var(--font-heading)", fontWeight: 400, fontSize: 32, margin: 0, color: "var(--color-accent-700)" }}>6</p>
@@ -146,6 +153,7 @@ export default function Home() {
             </p>
           </div>
           <div
+            className="stat-orb fade-in-up"
             style={{
               position: "absolute",
               borderRadius: "50%",
@@ -158,6 +166,7 @@ export default function Home() {
               placeContent: "center",
               textAlign: "center",
               padding: 28,
+              animationDelay: "90ms",
             }}
           >
             <p style={{ fontFamily: "var(--font-heading)", fontWeight: 400, fontSize: 40, margin: 0, color: "var(--color-accent-2-800)" }}>
@@ -177,6 +186,7 @@ export default function Home() {
             </p>
           </div>
           <div
+            className="stat-orb fade-in-up"
             style={{
               position: "absolute",
               borderRadius: "50%",
@@ -189,6 +199,7 @@ export default function Home() {
               placeContent: "center",
               textAlign: "center",
               padding: 18,
+              animationDelay: "200ms",
             }}
           >
             <p style={{ fontFamily: "var(--font-heading)", fontWeight: 400, fontSize: 30, margin: 0, color: "var(--color-accent-2-700)" }}>0</p>
@@ -239,6 +250,7 @@ export default function Home() {
           ].map((step, i, arr) => (
             <div
               key={step.title}
+              className="fade-in-up"
               style={{
                 display: "grid",
                 gridTemplateColumns: "minmax(0,420px) minmax(0,1fr)",
@@ -247,6 +259,7 @@ export default function Home() {
                 padding: "22px 0",
                 borderTop: "1px solid var(--color-divider)",
                 borderBottom: i === arr.length - 1 ? "1px solid var(--color-divider)" : undefined,
+                animationDelay: `${i * 90}ms`,
               }}
             >
               <h2
@@ -373,9 +386,21 @@ export default function Home() {
             Before you donate
           </h2>
           <div style={{ display: "flex", flexDirection: "column" }}>
-            {FAQS.map((item) => (
-              <details key={item.q} style={{ padding: "18px 0", borderTop: "1px solid var(--color-divider)" }}>
-                <summary style={{ cursor: "pointer", fontFamily: "var(--font-heading)", fontWeight: 400, fontSize: 17 }}>
+            {FAQS.map((item, i) => (
+              <details
+                key={item.q}
+                className="fade-in-up"
+                style={{ padding: "18px 0", borderTop: "1px solid var(--color-divider)", animationDelay: `${i * 60}ms` }}
+              >
+                <summary
+                  style={{
+                    cursor: "pointer",
+                    fontFamily: "var(--font-heading)",
+                    fontWeight: 400,
+                    fontSize: 17,
+                    transition: "color 160ms var(--ease-out)",
+                  }}
+                >
                   {item.q}
                 </summary>
                 <p

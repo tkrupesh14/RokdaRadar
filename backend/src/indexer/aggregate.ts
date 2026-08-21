@@ -3,11 +3,18 @@ import {
   categorySplit,
   countDeliveryAttestedSpends,
   countSpends,
+  evidencedSpendPaise,
   listSpendsByCampaign,
   vendorTotals,
 } from "../db/repositories/spendsRepo.js";
 import { countDonations, firstDonationTs, medianDonationPaise } from "../db/repositories/donationsRepo.js";
-import { CATEGORIES, type CategoryName } from "../config/constants.js";
+import {
+  CATEGORIES,
+  TRUST_SCORE_PENDING_TERMS,
+  TRUST_SCORE_WEIGHT_DELIVERY_ATTESTED,
+  TRUST_SCORE_WEIGHT_EVIDENCED_SPEND,
+  type CategoryName,
+} from "../config/constants.js";
 import { runAnomalyRules } from "./anomalyRules.js";
 import type { CampaignAggregate, VendorConcentrationEntry } from "../types/domain.js";
 
@@ -64,6 +71,22 @@ export async function computeAggregate(campaignId: number): Promise<CampaignAggr
   const deliveryAttestedCount = await countDeliveryAttestedSpends(campaignId);
   const deliveryAttestedPct = spendCount > 0 ? Number(((deliveryAttestedCount / spendCount) * 100).toFixed(1)) : 0;
 
+  const evidencedPaise = await evidencedSpendPaise(campaignId);
+  const evidencedSpendPct = spentPaise > 0 ? Number(((evidencedPaise / spentPaise) * 100).toFixed(1)) : 0;
+
+  const trustScore = Math.round(
+    TRUST_SCORE_WEIGHT_EVIDENCED_SPEND * evidencedSpendPct + TRUST_SCORE_WEIGHT_DELIVERY_ATTESTED * deliveryAttestedPct
+  );
+  const trustScoreBreakdown = {
+    evidencedSpendPct,
+    deliveryAttestedPct,
+    weights: {
+      evidencedSpendPct: Number(TRUST_SCORE_WEIGHT_EVIDENCED_SPEND.toFixed(4)),
+      deliveryAttestedPct: Number(TRUST_SCORE_WEIGHT_DELIVERY_ATTESTED.toFixed(4)),
+    },
+    pending: TRUST_SCORE_PENDING_TERMS,
+  };
+
   const anomalyCandidates = await runAnomalyRules(campaignId);
 
   // txIndex resolves every ref a report/guardrail might cite: each spendRef to
@@ -87,7 +110,10 @@ export async function computeAggregate(campaignId: number): Promise<CampaignAggr
     vendorConcentration,
     medianDonationPaise: medDonation,
     medianDisbursementLatencyHours,
+    evidencedSpendPct,
     deliveryAttestedPct,
+    trustScore,
+    trustScoreBreakdown,
     anomalyCandidates,
     txIndex,
   };

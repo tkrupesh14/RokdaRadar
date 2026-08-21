@@ -30,6 +30,7 @@ export default function CampaignClient({
   report?: ApiReport | null;
 }) {
   const [modalData, setModalData] = useState<ModalData | null>(null);
+  const [showTrustInfo, setShowTrustInfo] = useState(false);
 
   const openModal = (row: LedgerRow) =>
     setModalData({ date: row.date, desc: row.desc, category: row.category, amountDisplay: fmtINR(row.amount), hash: row.hash });
@@ -137,31 +138,34 @@ export default function CampaignClient({
                 height: 380,
               }}
             >
-              <div style={{ gridRow: "1/3", position: "relative", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
+              <div className="gallery-frame" style={{ gridRow: "1/3", position: "relative", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
                 <Image
                   src="/campaign/relief-camp.jpeg"
                   alt="Relief camp — main photo"
                   fill
                   sizes="(max-width: 900px) 100vw, 640px"
-                  style={{ objectFit: "cover" }}
+                  style={{ objectFit: "cover", transition: "transform 400ms var(--ease-out)" }}
+                  className="gallery-img"
                 />
               </div>
-              <div style={{ position: "relative", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
+              <div className="gallery-frame" style={{ position: "relative", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
                 <Image
                   src="/campaign/distribution.jpeg"
                   alt="Distribution photo"
                   fill
                   sizes="(max-width: 900px) 50vw, 320px"
-                  style={{ objectFit: "cover" }}
+                  style={{ objectFit: "cover", transition: "transform 400ms var(--ease-out)" }}
+                  className="gallery-img"
                 />
               </div>
-              <div style={{ position: "relative", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
+              <div className="gallery-frame" style={{ position: "relative", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
                 <Image
                   src="/campaign/volunteers.jpeg"
                   alt="Volunteer photo"
                   fill
                   sizes="(max-width: 900px) 50vw, 320px"
-                  style={{ objectFit: "cover" }}
+                  style={{ objectFit: "cover", transition: "transform 400ms var(--ease-out)" }}
+                  className="gallery-img"
                 />
               </div>
             </section>
@@ -192,12 +196,12 @@ export default function CampaignClient({
               <h2 style={{ fontFamily: "var(--font-heading)", fontWeight: 400, fontSize: 26, margin: "0 0 16px" }}>
                 Where the money went
               </h2>
-              <div style={{ display: "flex", width: "100%", height: 14, borderRadius: 999, overflow: "hidden", gap: 2 }}>
+              <div className="bar-fill" style={{ display: "flex", width: "100%", height: 14, borderRadius: 999, overflow: "hidden", gap: 2 }}>
                 {campaign.categories.map((cat) => (
                   <div key={cat.name} style={{ flexBasis: `${cat.pct}%`, background: cat.color }} />
                 ))}
               </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "10px 20px", marginTop: 14 }}>
+              <div className="stagger-list" style={{ display: "flex", flexWrap: "wrap", gap: "10px 20px", marginTop: 14 }}>
                 {campaign.categories.map((cat) => (
                   <div
                     key={cat.name}
@@ -244,6 +248,7 @@ export default function CampaignClient({
                       Over the past 7 days, <b>₹3,42,000</b> was disbursed across food, shelter and medical supplies.
                       Every spend below carries vendor evidence and is confirmed on Monad{" "}
                       <span
+                        className="hash-chip"
                         onClick={() => openModal(aiRecord)}
                         style={{
                           display: "inline-flex",
@@ -256,6 +261,7 @@ export default function CampaignClient({
                           padding: "2px 10px",
                           cursor: "pointer",
                           whiteSpace: "nowrap",
+                          transition: "background 160ms var(--ease-out), transform 160ms var(--ease-out)",
                         }}
                       >
                         ⧉ {aiRecord.hash}
@@ -293,6 +299,7 @@ export default function CampaignClient({
                       <td>{fmtINR(row.amount)}</td>
                       <td>
                         <span
+                          className="hash-chip"
                           onClick={() => openModal(row)}
                           style={{
                             display: "inline-flex",
@@ -305,6 +312,7 @@ export default function CampaignClient({
                             padding: "2px 9px",
                             cursor: "pointer",
                             whiteSpace: "nowrap",
+                            transition: "background 160ms var(--ease-out), transform 160ms var(--ease-out)",
                           }}
                         >
                           ⧉ {row.hash}
@@ -319,7 +327,7 @@ export default function CampaignClient({
             {/* Updates */}
             <section>
               <h2 style={{ fontFamily: "var(--font-heading)", fontWeight: 400, fontSize: 26, margin: "0 0 16px" }}>Updates</h2>
-              <div style={{ display: "flex", flexDirection: "column" }}>
+              <div className="stagger-list" style={{ display: "flex", flexDirection: "column" }}>
                 {campaign.updates.map((u) => (
                   <div
                     key={u.date}
@@ -345,7 +353,7 @@ export default function CampaignClient({
               <h2 style={{ fontFamily: "var(--font-heading)", fontWeight: 400, fontSize: 26, margin: "0 0 16px" }}>
                 Recent supporters
               </h2>
-              <div style={{ display: "flex", flexDirection: "column" }}>
+              <div className="stagger-list" style={{ display: "flex", flexDirection: "column" }}>
                 {campaign.donors.map((d, i) => (
                   <div
                     key={i}
@@ -379,7 +387,7 @@ export default function CampaignClient({
               <h2 style={{ fontFamily: "var(--font-heading)", fontWeight: 400, fontSize: 26, margin: "0 0 16px" }}>
                 Other active campaigns
               </h2>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16 }}>
+              <div className="stagger-list" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16 }}>
                 {related.map((r) => (
                   <Link
                     key={r.slug}
@@ -442,6 +450,7 @@ export default function CampaignClient({
               <svg width="88" height="88" viewBox="0 0 88 88">
                 <circle cx="44" cy="44" r="37" fill="none" stroke="var(--color-neutral-200)" strokeWidth="8" />
                 <circle
+                  className="ring-fill"
                   cx="44"
                   cy="44"
                   r="37"
@@ -450,15 +459,32 @@ export default function CampaignClient({
                   strokeWidth="8"
                   strokeLinecap="round"
                   strokeDasharray={circumference.toFixed(1)}
-                  strokeDashoffset={dashOffset.toFixed(1)}
+                  style={{
+                    strokeDashoffset: dashOffset,
+                    ["--ring-empty" as string]: circumference.toFixed(1),
+                  }}
                   transform="rotate(-90 44 44)"
                 />
                 <text x="44" y="50" textAnchor="middle" fontFamily="var(--font-heading)" fontSize="20" fill="var(--color-text)">
                   {campaign.trustScore}
                 </text>
               </svg>
-              <div style={{ fontFamily: "var(--font-heading)", fontSize: 15, color: "var(--color-accent-2-800)", marginTop: 6 }}>
+              <div style={{ fontFamily: "var(--font-heading)", fontSize: 15, color: "var(--color-accent-2-800)", marginTop: 6, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
                 Verified
+                {campaign.trustScoreBreakdown && (
+                  <button
+                    type="button"
+                    onClick={() => setShowTrustInfo(true)}
+                    aria-label="How the trust score is calculated"
+                    style={{
+                      width: 16, height: 16, borderRadius: "50%", border: "1px solid var(--color-accent-2-700)",
+                      background: "transparent", color: "var(--color-accent-2-700)", fontSize: 10, lineHeight: 1,
+                      cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", padding: 0,
+                    }}
+                  >
+                    i
+                  </button>
+                )}
               </div>
             </div>
 
@@ -497,6 +523,44 @@ export default function CampaignClient({
           ]}
         />
       )}
+
+      {showTrustInfo && campaign.trustScoreBreakdown && (
+        <div className="dialog-backdrop" style={{ position: "fixed", inset: 0, zIndex: 50 }} onClick={() => setShowTrustInfo(false)}>
+          <div className="dialog" onClick={(e) => e.stopPropagation()}>
+            <h3 className="dialog-title">How this score is calculated</h3>
+            <div className="dialog-body" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <p style={{ margin: 0 }}>
+                Computed server-side from on-chain data, never by AI. The published formula has 5 weighted
+                factors; 2 are live today:
+              </p>
+              <p style={{ margin: 0 }}>
+                <b>{Math.round(campaign.trustScoreBreakdown.weights.evidencedSpendPct * 100)}%</b> weight —
+                spend with evidence on file: <b>{campaign.trustScoreBreakdown.evidencedSpendPct}%</b>
+              </p>
+              <p style={{ margin: 0 }}>
+                <b>{Math.round(campaign.trustScoreBreakdown.weights.deliveryAttestedPct * 100)}%</b> weight —
+                spend with an independent delivery attestation: <b>{campaign.trustScoreBreakdown.deliveryAttestedPct}%</b>
+              </p>
+              <p style={{ margin: 0, fontSize: 12.5, opacity: 0.75 }}>
+                Bank reconciliation, promise-alignment, and attestor-diversity checks are being built next and
+                will be added to this score as they ship — this score reflects only what&apos;s verifiable
+                today, not a final rating.
+              </p>
+            </div>
+            <div className="dialog-actions">
+              <button type="button" className="btn btn-secondary" onClick={() => setShowTrustInfo(false)}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style>{`
+        .gallery-frame:hover .gallery-img { transform: scale(1.05); }
+        .hash-chip:hover { background: var(--color-accent-2-200); transform: translateY(-1px); }
+        .hash-chip:active { transform: translateY(0) scale(0.97); }
+      `}</style>
     </div>
   );
 }

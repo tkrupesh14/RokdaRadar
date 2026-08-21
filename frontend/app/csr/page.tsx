@@ -116,7 +116,7 @@ export default function CsrDashboard() {
   if (!loggedIn) {
     return (
       <div style={{ fontFamily: "var(--font-body)", minHeight: "100vh", background: "var(--color-bg)", color: "var(--color-text)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-        <div className="card elev-lg" style={{ width: "100%", maxWidth: 380, padding: 32 }}>
+        <div className="card elev-lg fade-in-up" style={{ width: "100%", maxWidth: 380, padding: 32 }}>
           <div style={{ fontSize: 12, letterSpacing: "0.06em", textTransform: "uppercase", fontWeight: 600, color: "var(--color-accent-700)", marginBottom: 6 }}>
             RokdaRadar for CSR
           </div>
@@ -165,34 +165,34 @@ export default function CsrDashboard() {
 
       <div style={{ padding: "24px clamp(16px,3vw,40px) 80px" }}>
         {/* Portfolio summary */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 10, marginBottom: 28 }}>
-          <div className="card" style={{ padding: "14px 16px" }}>
+        <div className="stagger-list" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 10, marginBottom: 28 }}>
+          <div className="card elev-sm" style={{ padding: "14px 16px" }}>
             <div style={{ fontSize: 10.5, textTransform: "uppercase", letterSpacing: "0.05em", color: "color-mix(in srgb, var(--color-text) 60%, transparent)" }}>Total disbursed</div>
             <div style={{ fontFamily: "var(--font-heading)", fontSize: 21, marginTop: 6 }}>₹86,40,000</div>
           </div>
-          <div className="card" style={{ padding: "14px 16px" }}>
+          <div className="card elev-sm" style={{ padding: "14px 16px" }}>
             <div style={{ fontSize: 10.5, textTransform: "uppercase", letterSpacing: "0.05em", color: "color-mix(in srgb, var(--color-text) 60%, transparent)" }}>Campaigns supported</div>
             <div style={{ fontFamily: "var(--font-heading)", fontSize: 21, marginTop: 6 }}>8</div>
           </div>
-          <div className="card" style={{ padding: "14px 16px" }}>
+          <div className="card elev-sm" style={{ padding: "14px 16px" }}>
             <div style={{ fontSize: 10.5, textTransform: "uppercase", letterSpacing: "0.05em", color: "color-mix(in srgb, var(--color-text) 60%, transparent)" }}>Avg. trust score</div>
             <div style={{ fontFamily: "var(--font-heading)", fontSize: 21, marginTop: 6, color: "var(--color-accent-2-700)" }}>78</div>
           </div>
-          <div className="card" style={{ padding: "14px 16px" }}>
+          <div className="card elev-sm" style={{ padding: "14px 16px" }}>
             <div style={{ fontSize: 10.5, textTransform: "uppercase", letterSpacing: "0.05em", color: "color-mix(in srgb, var(--color-text) 60%, transparent)" }}>Anomalies</div>
             <div style={{ fontFamily: "var(--font-heading)", fontSize: 21, marginTop: 6, color: "var(--color-accent-800)" }}>
               2 open <span style={{ fontSize: 12, fontFamily: "var(--font-body)", fontWeight: 400, color: "color-mix(in srgb, var(--color-text) 55%, transparent)" }}>/ 5 resolved</span>
             </div>
           </div>
-          <div className="card" style={{ padding: "14px 16px" }}>
+          <div className="card elev-sm" style={{ padding: "14px 16px" }}>
             <div style={{ fontSize: 10.5, textTransform: "uppercase", letterSpacing: "0.05em", color: "color-mix(in srgb, var(--color-text) 60%, transparent)" }}>Spend with evidence</div>
             <div style={{ fontFamily: "var(--font-heading)", fontSize: 21, marginTop: 6 }}>96%</div>
           </div>
         </div>
 
         {/* Charts row */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.2fr", gap: 16, marginBottom: 32 }}>
-          <div className="card" style={{ padding: 18 }}>
+        <div className="stagger-list" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.2fr", gap: 16, marginBottom: 32 }}>
+          <div className="card elev-sm" style={{ padding: 18 }}>
             <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 14 }}>Funds by category</div>
             <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
               <div style={{ width: 100, height: 100, borderRadius: "50%", flexShrink: 0, background: donutGradient }} />
@@ -206,7 +206,7 @@ export default function CsrDashboard() {
               </div>
             </div>
           </div>
-          <div className="card" style={{ padding: 18 }}>
+          <div className="card elev-sm" style={{ padding: 18 }}>
             <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 14 }}>Funds by region</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {regionBars.map((r) => (
@@ -215,14 +215,14 @@ export default function CsrDashboard() {
                     <span>{r.name}</span>
                     <span>{r.amountDisplay}</span>
                   </div>
-                  <div style={{ height: 6, borderRadius: 999, background: "var(--color-neutral-200)" }}>
-                    <div style={{ height: "100%", width: `${r.pct}%`, borderRadius: 999, background: "var(--color-accent-500)" }} />
+                  <div className="progress-track" style={{ height: 6 }}>
+                    <div className="progress-fill" style={{ width: `${r.pct}%` }} />
                   </div>
                 </div>
               ))}
             </div>
           </div>
-          <div className="card" style={{ padding: 18 }}>
+          <div className="card elev-sm" style={{ padding: 18 }}>
             <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 14 }}>Disbursement trend, last 6 months</div>
             <svg viewBox="0 0 260 110" style={{ width: "100%", height: 110 }}>
               <polyline points={trendPoints} fill="none" stroke="var(--color-accent-500)" strokeWidth={2.5} />
@@ -280,7 +280,7 @@ export default function CsrDashboard() {
         </div>
 
         {/* Campaign grid */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(240px,1fr))", gap: 14 }}>
+        <div className="stagger-list" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(240px,1fr))", gap: 14 }}>
           {filtered.map((c) => {
             const trustColor = c.trust >= 80 ? "var(--color-accent-2-700)" : c.trust >= 60 ? "var(--color-accent-700)" : "var(--color-accent-800)";
             const cardBody = (

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Caprasimo, Figtree } from "next/font/google";
 import "./globals.css";
 
@@ -18,6 +18,11 @@ export const metadata: Metadata = {
   title: "RokdaRadar — proof of where relief money goes",
   description:
     "RokdaRadar is a transparency layer for disaster relief. Donations move via UPI; every rupee spent is recorded with evidence on Monad.",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

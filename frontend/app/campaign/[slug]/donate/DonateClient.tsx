@@ -93,16 +93,20 @@ export default function DonateClient({ campaign }: { campaign: CampaignDetail })
                 <button
                   key={amt}
                   type="button"
+                  className="chip-btn"
                   onClick={() => pickChip(amt)}
                   style={{
                     padding: "10px 4px",
                     borderRadius: 999,
                     border: `1px solid ${active ? "var(--color-accent)" : "var(--color-divider)"}`,
-                    background: active ? "var(--color-accent)" : "transparent",
+                    background: active ? "var(--gradient-accent)" : "transparent",
                     color: active ? "var(--color-bg)" : "var(--color-text)",
                     fontFamily: "var(--font-heading)",
                     fontSize: 13,
                     cursor: "pointer",
+                    transition: "background 160ms var(--ease-out), border-color 160ms var(--ease-out), transform 120ms var(--ease-out), box-shadow 160ms var(--ease-out)",
+                    transform: active ? "translateY(-1px)" : "none",
+                    boxShadow: active ? "var(--shadow-sm)" : "none",
                   }}
                 >
                   {fmtINR(amt)}
@@ -212,6 +216,7 @@ export default function DonateClient({ campaign }: { campaign: CampaignDetail })
         {beat === "receipt" && (
           <section style={{ animation: "popin 180ms ease-out", borderTop: "1px solid var(--color-divider)", paddingTop: 32, textAlign: "center" }}>
             <div
+              className="pop-scale"
               style={{
                 width: 64,
                 height: 64,
@@ -227,13 +232,14 @@ export default function DonateClient({ campaign }: { campaign: CampaignDetail })
             >
               ✓
             </div>
-            <div style={{ fontFamily: "var(--font-heading)", fontWeight: 400, fontSize: 32, marginBottom: 6 }}>{amountDisplay}</div>
-            <div style={{ fontSize: 13, color: "color-mix(in srgb, var(--color-text) 65%, transparent)", marginBottom: 18 }}>
+            <div className="fade-in-up" style={{ fontFamily: "var(--font-heading)", fontWeight: 400, fontSize: 32, marginBottom: 6, animationDelay: "80ms" }}>{amountDisplay}</div>
+            <div className="fade-in-up" style={{ fontSize: 13, color: "color-mix(in srgb, var(--color-text) 65%, transparent)", marginBottom: 18, animationDelay: "130ms" }}>
               Confirmed on Monad
             </div>
             {txHash && (
-              <div style={{ display: "flex", justifyContent: "center", marginBottom: 24 }}>
+              <div className="fade-in-up" style={{ display: "flex", justifyContent: "center", marginBottom: 24, animationDelay: "180ms" }}>
                 <span
+                  className="hash-chip"
                   onClick={() => setModalOpen(true)}
                   style={{
                     display: "inline-flex",
@@ -245,6 +251,7 @@ export default function DonateClient({ campaign }: { campaign: CampaignDetail })
                     borderRadius: 999,
                     padding: "5px 12px",
                     cursor: "pointer",
+                    transition: "background 160ms var(--ease-out), transform 160ms var(--ease-out)",
                   }}
                 >
                   ⧉ {shortHash(txHash)}
@@ -275,6 +282,13 @@ export default function DonateClient({ campaign }: { campaign: CampaignDetail })
           ]}
         />
       )}
+
+      <style>{`
+        .chip-btn:not(:disabled):hover { border-color: var(--color-accent); }
+        .chip-btn:not(:disabled):active { transform: scale(0.96) !important; }
+        .hash-chip:hover { background: var(--color-accent-2-200); transform: translateY(-1px); }
+        .hash-chip:active { transform: translateY(0) scale(0.97); }
+      `}</style>
     </div>
   );
 }

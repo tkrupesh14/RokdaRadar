@@ -64,11 +64,16 @@ export default async function CampaignsPage() {
         </p>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(280px,1fr))", gap: 18 }}>
-          {campaigns.map((c) => {
+          {campaigns.map((c, i) => {
             const left = c.raised - c.spent;
             const spentPct = c.raised > 0 ? Math.round((c.spent / c.raised) * 100) : 0;
             return (
-              <Link key={c.slug} href={`/campaign/${c.slug}`} className="card elev-sm" style={{ padding: 18, textDecoration: "none", color: "inherit", gap: 10 }}>
+              <Link
+                key={c.slug}
+                href={`/campaign/${c.slug}`}
+                className="card elev-sm fade-in-up"
+                style={{ padding: 18, textDecoration: "none", color: "inherit", gap: 10, animationDelay: `${Math.min(i, 8) * 60}ms` }}
+              >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
                   <span className="card-kicker">{c.org}</span>
                   {c.isLive && (
@@ -96,8 +101,8 @@ export default async function CampaignsPage() {
                   <span className="tag tag-outline">{c.region}</span>
                   <span className="tag tag-outline">{c.disasterTag}</span>
                 </div>
-                <div style={{ height: 8, borderRadius: 999, background: "var(--color-neutral-200)", marginTop: 4 }}>
-                  <div style={{ height: "100%", width: `${spentPct}%`, borderRadius: 999, background: "var(--color-accent-500)" }} />
+                <div className="progress-track" style={{ marginTop: 4 }}>
+                  <div className="progress-fill" style={{ width: `${spentPct}%` }} />
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6, fontSize: 11.5, marginTop: 2 }}>
                   <div>

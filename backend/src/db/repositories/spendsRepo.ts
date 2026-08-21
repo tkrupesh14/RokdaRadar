@@ -49,6 +49,21 @@ export async function countDeliveryAttestedSpends(campaignId: number, exec: Exec
   return Number(result.rows[0].n);
 }
 
+// Trust score's evidencedSpendPct (LLD Section 8) is amount-weighted, not
+// count-weighted -- one large undocumented spend should move the score more
+// than several small ones. evidence_cid is NOT NULL at the schema level
+// (every confirmed spend has one, since attestSpend() reverts without it --
+// contracts/contracts/ReliefTraceIN.sol), so this is a genuine query, not a
+// hardcoded 100: it'll still work correctly if that contract invariant ever
+// loosens.
+export async function evidencedSpendPaise(campaignId: number, exec: Executor = getPool()): Promise<number> {
+  const result = await exec.query(
+    `SELECT COALESCE(SUM(amount_paise), 0) as total FROM spends WHERE campaign_id = $1 AND evidence_cid != ''`,
+    [campaignId]
+  );
+  return Number(result.rows[0].total);
+}
+
 export async function categorySplit(campaignId: number, exec: Executor = getPool()): Promise<Record<string, number>> {
   const result = await exec.query(
     `SELECT category, SUM(amount_paise) as total FROM spends WHERE campaign_id = $1 GROUP BY category`,
