@@ -76,12 +76,41 @@ const envSchema = z.object({
 
 export type Env = z.infer<typeof envSchema>;
 
+const DEFAULT_WEBHOOK_HMAC_SECRET = "change-me-dev-secret";
+
+// Fails fast at boot rather than letting a demo-grade secret or a shared
+// admin/oracle key reach production silently -- see area:security issue
+// #18 (secrets and key management review). These are deliberately not
+// zod .refine() checks on the schema itself: they must only fire for
+// NODE_ENV=production, and zod validates before NODE_ENV is known to be
+// "production" vs "development"/"test".
+function assertProductionSecretsAreSafe(parsed: Env): void {
+  if (parsed.NODE_ENV !== "production") return;
+
+  const problems: string[] = [];
+  if (parsed.WEBHOOK_HMAC_SECRET === DEFAULT_WEBHOOK_HMAC_SECRET) {
+    problems.push("WEBHOOK_HMAC_SECRET is still the default dev placeholder -- set a unique production secret.");
+  }
+  if (parsed.OPERATOR_PRIVATE_KEY && !parsed.ORACLE_PRIVATE_KEY) {
+    problems.push(
+      "ORACLE_PRIVATE_KEY is unset, so the oracle role would silently fall back to OPERATOR_PRIVATE_KEY. " +
+        "Production must use a distinct key per role (operator: createCampaign/attestSpend/attestDelivery; " +
+        "oracle: attestDonation only) so a compromised oracle key can't be used for privileged operator actions."
+    );
+  }
+
+  if (problems.length > 0) {
+    throw new Error(`Unsafe production secrets configuration:\n- ${problems.join("\n- ")}`);
+  }
+}
+
 function loadEnv(): Env {
   const parsed = envSchema.safeParse(process.env);
   if (!parsed.success) {
     console.error("Invalid environment configuration:", parsed.error.flatten().fieldErrors);
     throw new Error("Invalid environment configuration");
   }
+  assertProductionSecretsAreSafe(parsed.data);
   return parsed.data;
 }
 
