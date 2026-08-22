@@ -29,6 +29,23 @@ const envSchema = z.object({
   ATTESTOR_ALLOWLIST: z.string().default(""),
   MANAGER_ALLOWLIST: z.string().default(""),
 
+  // Per-IP rate limits on public, chain-writing/abuse-prone endpoints. Both
+  // endpoints below trigger an on-chain attestDonation call, so an unbounded
+  // caller can burn oracle-wallet gas and DB/RPC capacity. Defaults are sized
+  // for real traffic, not the MVP0 demo (see area:security issue #19):
+  // donate is a real donor hitting "pay", so a human-scale cap is enough;
+  // webhook is called by a small, fixed set of PSP-side IPs so it can run
+  // hotter without the cap ever being felt by legitimate traffic.
+  RATE_LIMIT_DONATE_WINDOW_MS: z.coerce.number().default(60_000),
+  RATE_LIMIT_DONATE_MAX: z.coerce.number().default(10),
+  RATE_LIMIT_WEBHOOK_WINDOW_MS: z.coerce.number().default(60_000),
+  RATE_LIMIT_WEBHOOK_MAX: z.coerce.number().default(120),
+
+  // How long a processed webhook payment.id is remembered for idempotency
+  // dedup before it's pruned from memory. Bounds process memory under
+  // sustained real-world transaction volume (see issue #19).
+  WEBHOOK_IDEMPOTENCY_WINDOW_MS: z.coerce.number().default(24 * 60 * 60 * 1000),
+
   // AI_PROVIDER picks which model backs the report service. Left unset, it
   // auto-selects whichever key is present (GEMINI_API_KEY preferred, since
   // that's what's actually available right now -- see AI_PROVIDER
