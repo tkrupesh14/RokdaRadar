@@ -162,6 +162,38 @@ export function listCampaigns() {
   return safeFetch<{ campaigns: ApiCampaign[] }>(`/api/campaigns`);
 }
 
+export type ApiCsrPortfolioCampaign = {
+  campaignId: number;
+  operator: string;
+  disasterTag: string;
+  darpanId: string | null;
+  reg80G: string | null;
+  active: boolean;
+  raisedPaise: number;
+  spentPaise: number;
+  trustScore: number;
+  evidencedSpendPct: number;
+  anomalyCount: number;
+};
+
+// One shared portfolio across every real on-chain campaign -- there's no
+// company/donor-attribution data model in this system, see the backend
+// route's own description (src/routes/csr.ts).
+export type ApiCsrPortfolio = {
+  campaignCount: number;
+  totalRaisedPaise: number;
+  totalSpentPaise: number;
+  avgTrustScore: number;
+  /** Spend-weighted, not a simple average across campaigns. */
+  avgEvidencedSpendPct: number;
+  campaignsWithAnomalies: number;
+  campaigns: ApiCsrPortfolioCampaign[];
+};
+
+export function getCsrPortfolio() {
+  return safeFetch<ApiCsrPortfolio>(`/api/csr/portfolio`);
+}
+
 export type ApiDonateResponse = {
   paymentId: string;
   utr: string;

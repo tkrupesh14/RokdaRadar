@@ -41,10 +41,22 @@ never implies a mock number is formula-computed.
 
 ### MVP 3 — CSR reporting: partial/mostly mock
 
-🟡 **Partial.** `frontend/app/csr/page.tsx` overlays real `getAggregate()` data only for the one campaign
-with a real on-chain `backendId` (Wayanad); all portfolio-level CSR fields are static
-(`frontend/lib/csrData.ts`). `frontend/app/csr/admin/page.tsx` is pure mock with no backend fetch at all.
-The LLD's export endpoint (`GET /api/csr/:companyId/report?format=pdf|xlsx`) does not exist.
+🟡 **Partial.** `frontend/app/csr/page.tsx` now overlays real data (raised/spent/trust/evidence%/anomalies)
+for every mock campaign row that has a `backendId`, via a new `GET /api/csr/portfolio`
+(`backend/src/routes/csr.ts`) that aggregates across every real on-chain campaign in one call. **Scope
+decision**: there is no company/donor-attribution data model anywhere in the system (donations are
+anonymous UPI payments, not linked to a specific CSR company), so this is one shared portfolio across
+every campaign, not a real per-company subset -- matches the dashboard's actual current design (a shared
+view for any logged-in CSR user), not the LLD's literal `:companyId` framing. Building real per-company
+attribution would need a new data model with no existing spec to build it from. The portfolio summary
+tiles (total disbursed, campaigns supported, avg trust score, spend-with-evidence%, open anomalies) are
+now computed from whatever's in the overlaid campaign list rather than hardcoded strings.
+`frontend/app/csr/admin/page.tsx` stays pure mock -- it's a full CRUD console (campaign creation,
+operator PIN generation, assignments) for actions with no real backend counterpart at all (campaigns are
+created via the contract's `createCampaign` by an operator wallet, not an admin form; there's no
+operator-PIN auth system, operators sign with wallets per `auth/operatorSignature.ts`). Wiring it "real"
+would mean inventing those backend features from scratch, well beyond wiring existing data.
+The LLD's export endpoint (`GET /api/csr/:companyId/report?format=pdf|xlsx`) still does not exist.
 
 ### MVP 4 — network intelligence: not started
 
@@ -59,7 +71,7 @@ Zero references to collusion detection or vendor reputation graphs anywhere in t
 | `/campaigns` | Mix — real aggregate overlay where a `backendId` exists, mock otherwise |
 | `/campaign/[slug]` | Mix — real aggregate/feed/AI report merged in; story, donors, trust score stay mock |
 | `/campaign/[slug]/donate` | Same campaign data model as above |
-| `/csr` | Mix — one real campaign overlay, rest mock |
+| `/csr` | Mix — real overlay for every campaign with a `backendId` (shared portfolio, not per-company), rest mock |
 | `/csr/admin` | Pure mock, no backend wiring |
 | `/operator` | Mix — real wallet-signed spend recording (`recordSpend`) merged with local demo spends |
 | `/arena` | Explicitly fictional demo, no backend |
@@ -88,9 +100,9 @@ a misleading claim.
 2. **MVP 1+ — Bank reconciliation job.** Now the top priority: needed for its own sake and to unblock
    the `reconciliationMatchPct` term so the trust score can grow toward the full 5-term formula. The UPI
    webhook side is already solid; this is the missing nightly job (LLD §7.2).
-3. **MVP 3 — Real CSR data + export endpoint.** Extend backend aggregate/report endpoints to cover CSR
-   portfolios beyond the single wired campaign, then build the `GET /api/csr/:companyId/report` PDF/XLSX
-   export the LLD specifies (§9) — currently entirely missing.
+3. ~~**MVP 3 — Real CSR portfolio data.**~~ ✅ Done (see above) — `GET /api/csr/portfolio` covers every
+   real on-chain campaign now, not just the one previously wired. Still open: the `GET
+   /api/csr/:companyId/report` PDF/XLSX export the LLD specifies (§9) — doesn't exist yet.
 4. **Evidence storage upgrade.** Move off local-filesystem+hash to real IPFS or S3-compatible storage —
    low urgency functionally, but a real gap versus the "immutable evidence" story.
 5. **MVP 1 — Real UPI PSP integration.** Swap the mocked webhook for a real Razorpay/Cashfree
