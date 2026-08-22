@@ -50,6 +50,43 @@ jobs:
         working-directory: backend
         run: npm run build
 
+  contracts-security:
+    name: Contracts test + Slither static analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: backend/contracts/package-lock.json
+
+      - name: Install dependencies
+        working-directory: backend/contracts
+        run: npm ci
+
+      - name: Compile
+        working-directory: backend/contracts
+        run: npx hardhat compile
+
+      - name: Run contract tests
+        working-directory: backend/contracts
+        run: npx hardhat test
+
+      # Static-analysis pass requested by issue #17. Informational for now
+      # (continue-on-error) rather than PR-blocking: this is the first run
+      # wired into CI, so findings need a human triage pass before any of
+      # them gate merges. Tighten to blocking once the initial findings are
+      # resolved or explicitly accepted.
+      - name: Slither static analysis
+        uses: crytic/slither-action@v0.4.0
+        continue-on-error: true
+        with:
+          target: backend/contracts
+          node-version: 22
+          fail-on: none
+
   request-copilot-review:
     name: Request Copilot code review
     needs: [frontend-build, backend-build]
