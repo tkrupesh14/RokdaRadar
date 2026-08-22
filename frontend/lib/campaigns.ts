@@ -9,7 +9,8 @@ export type LedgerRow = {
 export type TrustScoreBreakdown = {
   evidencedSpendPct: number;
   deliveryAttestedPct: number;
-  weights: { evidencedSpendPct: number; deliveryAttestedPct: number };
+  reconciliationMatchPct: number;
+  weights: { evidencedSpendPct: number; deliveryAttestedPct: number; reconciliationMatchPct: number };
   pending: string[];
 };
 
