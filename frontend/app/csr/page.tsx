@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { CAT_COLORS, CSR_CAMPAIGNS, type CsrCampaign } from "@/lib/csrData";
-import { getCsrPortfolio, type ApiCsrPortfolio } from "@/lib/api";
+import { getCsrPortfolio, csrReportUrl, type ApiCsrPortfolio } from "@/lib/api";
 import { fmtINR, paiseToRupees } from "@/lib/format";
 import Logo from "@/components/Logo";
 
@@ -351,27 +351,31 @@ export default function CsrDashboard() {
       {reportOpen && (
         <div className="dialog-backdrop" style={{ position: "fixed", inset: 0, zIndex: 50 }} onClick={() => setReportOpen(false)}>
           <div className="dialog" style={{ width: "min(480px,100%)" }} onClick={(e) => e.stopPropagation()}>
-            <h3 className="dialog-title">Board Report — August 2026</h3>
+            <h3 className="dialog-title">Board Report</h3>
             <div className="dialog-body">
-              <p style={{ margin: "0 0 10px" }}>This report will include:</p>
+              <p style={{ margin: "0 0 10px" }}>This report includes:</p>
               <ul style={{ margin: 0, paddingLeft: 18, display: "flex", flexDirection: "column", gap: 6 }}>
                 <li>
                   Portfolio summary — {portfolioTotals.campaignCount} campaigns, {fmtINR(portfolioTotals.totalDisbursed)}{" "}
                   disbursed
                 </li>
-                <li>Campaign-by-campaign breakdown with trust scores</li>
-                <li>{portfolioTotals.openAnomalies} open anomalies with current status</li>
-                <li>Funds-by-category and funds-by-region charts</li>
-                <li>Auditor sign-off page</li>
+                <li>Per-campaign spend disclosure (date, category, vendor, amount)</li>
+                <li>
+                  A verification appendix — every included donation/spend&apos;s transaction hash and Monad Explorer
+                  link, so every figure can be reproduced independently
+                </li>
               </ul>
             </div>
             <div className="dialog-actions">
               <button type="button" className="btn btn-secondary" onClick={() => setReportOpen(false)}>
                 Close
               </button>
-              <button type="button" className="btn btn-primary">
+              <a className="btn btn-primary" href={csrReportUrl("xlsx")}>
+                Download XLSX
+              </a>
+              <a className="btn btn-primary" href={csrReportUrl("pdf")}>
                 Download PDF
-              </button>
+              </a>
             </div>
           </div>
         </div>

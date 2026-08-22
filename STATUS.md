@@ -56,7 +56,15 @@ operator PIN generation, assignments) for actions with no real backend counterpa
 created via the contract's `createCampaign` by an operator wallet, not an admin form; there's no
 operator-PIN auth system, operators sign with wallets per `auth/operatorSignature.ts`). Wiring it "real"
 would mean inventing those backend features from scratch, well beyond wiring existing data.
-The LLD's export endpoint (`GET /api/csr/:companyId/report?format=pdf|xlsx`) still does not exist.
+The LLD's export endpoint now exists as `GET /api/csr/report?format=pdf|xlsx&from=&to=`
+(`backend/src/csr/{reportData,pdfReport,xlsxReport}.ts`) -- dropped the literal `:companyId` path segment
+for the same scope reason as above (no company entity to key on). Generates a portfolio summary,
+per-campaign spend disclosure, and a verification appendix listing every included donation/spend's tx
+hash and Monad Explorer link (LLD §9's "reproduce every figure from the appendix alone"), optionally
+scoped to a date range. Wired into the CSR dashboard's existing "Generate Board Report" dialog
+(`frontend/app/csr/page.tsx`) as real Download PDF/XLSX links -- that dialog previously promised charts
+and an auditor sign-off page that were never actually implemented; its copy now describes what the
+report actually contains instead.
 
 ### MVP 4 — network intelligence: not started
 

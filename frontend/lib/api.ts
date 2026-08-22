@@ -194,6 +194,13 @@ export function getCsrPortfolio() {
   return safeFetch<ApiCsrPortfolio>(`/api/csr/portfolio`);
 }
 
+// Direct download link, not a safeFetch() JSON call -- the browser navigates
+// to this URL (or an <a download> triggers it) to stream the generated
+// file, same as any other file-download endpoint.
+export function csrReportUrl(format: "pdf" | "xlsx"): string {
+  return `${API_BASE_URL}/api/csr/report?format=${format}`;
+}
+
 export type ApiDonateResponse = {
   paymentId: string;
   utr: string;

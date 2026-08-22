@@ -1,8 +1,27 @@
 import { Router } from "express";
+import { z } from "zod";
 import { listCampaigns } from "../db/repositories/campaignsRepo.js";
 import { computeAggregate } from "../indexer/aggregate.js";
+import { buildCsrReportData } from "../csr/reportData.js";
+import { renderCsrReportPdf } from "../csr/pdfReport.js";
+import { renderCsrReportXlsx } from "../csr/xlsxReport.js";
 
 export const csrRouter = Router();
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+// Shape-matching the regex isn't enough -- "2026-13-99" matches it but isn't
+// a real date, and new Date() on it silently produces Invalid Date (NaN),
+// which would make buildCsrReportData's `ts >= fromTs` comparisons always
+// false and silently return an empty report instead of erroring.
+const dateString = z
+  .string()
+  .regex(DATE_RE, "must be YYYY-MM-DD")
+  .refine((s) => !Number.isNaN(new Date(`${s}T00:00:00Z`).getTime()), "must be a valid calendar date");
+const reportQuerySchema = z.object({
+  format: z.enum(["pdf", "xlsx"]),
+  from: dateString.optional(),
+  to: dateString.optional(),
+});
 
 /**
  * @openapi
@@ -69,4 +88,68 @@ csrRouter.get("/api/csr/portfolio", async (_req, res) => {
     campaignsWithAnomalies,
     campaigns: campaignSummaries,
   });
+});
+
+/**
+ * @openapi
+ * /api/csr/report:
+ *   get:
+ *     summary: CSR compliance report (PDF or XLSX) across every on-chain campaign
+ *     description: >
+ *       LLD Section 9. Portfolio summary, per-campaign spend disclosure, and a verification
+ *       appendix listing every included donation/spend's tx hash and Monad Explorer link -- every
+ *       figure in the report is reproducible from the appendix alone. There is no company/donor
+ *       attribution data model in this system, so (unlike the LLD's literal `:companyId` path) this
+ *       covers the same shared portfolio `/api/csr/portfolio` does, optionally scoped to a date
+ *       range with `from`/`to`.
+ *     tags: [CSR]
+ *     parameters:
+ *       - in: query
+ *         name: format
+ *         required: true
+ *         schema: { type: string, enum: [pdf, xlsx] }
+ *       - in: query
+ *         name: from
+ *         schema: { type: string, example: "2026-01-01" }
+ *         description: Inclusive start date (YYYY-MM-DD). Omit for no lower bound.
+ *       - in: query
+ *         name: to
+ *         schema: { type: string, example: "2026-12-31" }
+ *         description: Inclusive end date (YYYY-MM-DD). Omit for no upper bound.
+ *     responses:
+ *       200:
+ *         description: Generated report file
+ *         content:
+ *           application/pdf: {}
+ *           application/vnd.openxmlformats-officedocument.spreadsheetml.sheet: {}
+ *       400:
+ *         description: Invalid query parameters
+ */
+csrRouter.get("/api/csr/report", async (req, res, next) => {
+  try {
+    const parsed = reportQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      res.status(400).json({ error: "BAD_REQUEST", detail: parsed.error.issues.map((i) => i.message).join("; ") });
+      return;
+    }
+    const { format, from, to } = parsed.data;
+
+    const data = await buildCsrReportData(from ?? null, to ?? null);
+    const filenameDate = new Date().toISOString().slice(0, 10);
+
+    if (format === "pdf") {
+      const buffer = await renderCsrReportPdf(data);
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="rokdaradar-csr-report-${filenameDate}.pdf"`);
+      res.send(buffer);
+      return;
+    }
+
+    const buffer = await renderCsrReportXlsx(data);
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", `attachment; filename="rokdaradar-csr-report-${filenameDate}.xlsx"`);
+    res.send(buffer);
+  } catch (err) {
+    next(err);
+  }
 });
