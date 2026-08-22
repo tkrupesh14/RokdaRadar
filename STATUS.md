@@ -19,7 +19,7 @@ the code (not the docs' intent). Last updated 2026-08-21.
 
 | Component | Status | Evidence |
 |---|---|---|
-| UPI PSP webhook | 🟡 Mocked, not a real PSP | `backend/src/routes/webhooks.ts` has full HMAC verification + idempotency + on-chain `attestDonation` call, but there's no Razorpay/Cashfree SDK — `backend/scripts/simulateUpiWebhook.ts` generates fixture events, `backend/README.md` calls it out explicitly |
+| UPI PSP webhook | ✅ Done (real Razorpay, mock still available) | `backend/src/payments/razorpay.ts` creates real Razorpay Orders (`POST /api/campaigns/:id/donate/order`); `backend/src/routes/webhooks.ts` now accepts Razorpay's real documented webhook shape (`X-Razorpay-Signature`, `payload.payment.entity`) alongside the original mock shape. Gated on `RAZORPAY_KEY_ID`/`SECRET` being set -- unset means the mocked `POST /api/campaigns/:id/donate` flow keeps working exactly as before. **Live-verified**: order creation was tested against a real Razorpay test-mode account (see PR). **Not live-verified**: actual webhook delivery from a real captured payment -- no public HTTPS URL exists in this dev environment for Razorpay to call, so that leg is covered by signature/payload-shape tests against Razorpay's documented format, not an end-to-end payment. Frontend Checkout UI (loading Razorpay's checkout.js, handling the async payment→webhook→attestation flow instead of the mock's synchronous response) is not wired up yet -- a real follow-up, not attempted speculatively without being able to verify the full loop. |
 | Bank reconciliation job | ❌ Not started | No matches for "reconcil" anywhere in `backend/src` |
 
 ### MVP 2 — trust score: partial, real for the wired campaign
@@ -93,8 +93,9 @@ a misleading claim.
    export the LLD specifies (§9) — currently entirely missing.
 4. **Evidence storage upgrade.** Move off local-filesystem+hash to real IPFS or S3-compatible storage —
    low urgency functionally, but a real gap versus the "immutable evidence" story.
-5. **MVP 1 — Real UPI PSP integration.** Swap the mocked webhook for a real Razorpay/Cashfree
-   integration — bigger lift (compliance, live money), reasonable to defer until the proof-side (2–4
-   above) is solid.
+5. ~~**MVP 1 — Real UPI PSP integration.**~~ ✅ Done, backend side (see above) — real Razorpay order
+   creation and webhook handling, live-verified against a test-mode account. Still open: the frontend
+   Checkout UI and the async payment→webhook→attestation UX it needs (the donate flow's "receipt" beat
+   currently assumes a synchronous confirmation, which only the mock flow provides).
 6. **MVP 4 — Network intelligence.** Correctly last: the LLD itself says not to build this until there's
    a real MVP3 dataset to validate collusion thresholds against.

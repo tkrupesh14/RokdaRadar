@@ -204,6 +204,8 @@ const definition = {
       },
       UpiWebhookPayload: {
         type: "object",
+        description:
+          "Simplified/mock shape shown here. Real Razorpay webhooks additionally nest the payment under payload.payment.entity and carry the UPI reference under payment.entity.acquirer_data.rrn instead of a top-level utr -- both shapes are accepted, see routes/webhooks.ts.",
         properties: {
           event: { type: "string", example: "payment.captured" },
           payload: {
