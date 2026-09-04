@@ -4,12 +4,17 @@ import { z } from "zod";
 import { ethers } from "ethers";
 import { getCampaign } from "../db/repositories/campaignsRepo.js";
 import { getOracleContract } from "../chain/contractClient.js";
-import { env } from "../config/env.js";
+import { env, isRazorpayConfigured } from "../config/env.js";
+import { createRazorpayOrder, RazorpayError } from "../payments/razorpay.js";
 import { simpleRateLimiter, byIp } from "../middleware/rateLimiter.js";
 
 const donateSchema = z.object({
   amountPaise: z.number().int().positive(),
   donorVpa: z.string().optional(),
+});
+
+const orderSchema = z.object({
+  amountPaise: z.number().int().positive(),
 });
 
 // Factory (not a module-level singleton) so each createApp() call -- each
@@ -18,6 +23,83 @@ const donateSchema = z.object({
 export function createDonateRouter(): Router {
   const donateRouter = Router();
   const donateLimiter = simpleRateLimiter(env.RATE_LIMIT_DONATE_WINDOW_MS, env.RATE_LIMIT_DONATE_MAX, byIp);
+
+  /**
+   * @openapi
+   * /api/campaigns/{id}/donate/order:
+   *   post:
+   *     summary: Create a real Razorpay order for a UPI donation (issue #6)
+   *     description: >
+   *       Real PSP integration (LLD Section 7.1): creates a Razorpay Order for the given amount,
+   *       which the frontend opens in Razorpay Checkout to actually collect a UPI payment. The
+   *       donation itself is only recorded on-chain once Razorpay sends a payment.captured webhook
+   *       to POST /api/webhooks/upi (asynchronous, not part of this response) -- this endpoint only
+   *       starts the payment, it does not confirm one. 503 if RAZORPAY_KEY_ID/SECRET aren't
+   *       configured, in which case the mock POST /api/campaigns/{id}/donate flow is still available.
+   *     tags: [Donations]
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema: { type: integer }
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required: [amountPaise]
+   *             properties:
+   *               amountPaise: { type: integer }
+   *     responses:
+   *       201:
+   *         description: Order created; hand orderId/keyId to Razorpay Checkout on the frontend
+   *       404:
+   *         description: Campaign not found
+   *       429:
+   *         description: Rate limited
+   *       503:
+   *         description: Razorpay not configured, or the Orders API call failed
+   */
+  donateRouter.post("/api/campaigns/:id/donate/order", donateLimiter, async (req, res, next) => {
+    try {
+      const id = Number(req.params.id);
+      const campaign = await getCampaign(id);
+      if (!campaign) {
+        res.status(404).json({ error: "NOT_FOUND", detail: `campaign ${id} not found` });
+        return;
+      }
+
+      if (!isRazorpayConfigured) {
+        res.status(503).json({
+          error: "PSP_NOT_CONFIGURED",
+          detail: "Razorpay is not configured on this deployment. Use POST /api/campaigns/:id/donate instead.",
+        });
+        return;
+      }
+
+      const body = orderSchema.parse(req.body);
+
+      let order;
+      try {
+        order = await createRazorpayOrder(body.amountPaise, { campaignId: String(id) });
+      } catch (err) {
+        const detail = err instanceof RazorpayError ? err.message : "Could not create Razorpay order";
+        res.status(503).json({ error: "PSP_UNAVAILABLE", detail });
+        return;
+      }
+
+      res.status(201).json({
+        orderId: order.id,
+        amountPaise: order.amount,
+        currency: order.currency,
+        keyId: env.RAZORPAY_KEY_ID,
+        campaignId: id,
+      });
+    } catch (err) {
+      next(err);
+    }
+  });
 
   /**
    * @openapi

@@ -19,7 +19,7 @@ the code (not the docs' intent). Last updated 2026-08-21.
 
 | Component | Status | Evidence |
 |---|---|---|
-| UPI PSP webhook | 🟡 Mocked, not a real PSP | `backend/src/routes/webhooks.ts` has full HMAC verification + idempotency + on-chain `attestDonation` call, but there's no Razorpay/Cashfree SDK — `backend/scripts/simulateUpiWebhook.ts` generates fixture events, `backend/README.md` calls it out explicitly |
+| UPI PSP webhook | ✅ Done (real Razorpay, mock still available) | `backend/src/payments/razorpay.ts` creates real Razorpay Orders (`POST /api/campaigns/:id/donate/order`); `backend/src/routes/webhooks.ts` now accepts Razorpay's real documented webhook shape (`X-Razorpay-Signature`, `payload.payment.entity`) alongside the original mock shape. Gated on `RAZORPAY_KEY_ID`/`SECRET` being set -- unset means the mocked `POST /api/campaigns/:id/donate` flow keeps working exactly as before. **Live-verified**: order creation was tested against a real Razorpay test-mode account (see PR). **Not live-verified**: actual webhook delivery from a real captured payment -- no public HTTPS URL exists in this dev environment for Razorpay to call, so that leg is covered by signature/payload-shape tests against Razorpay's documented format, not an end-to-end payment. Frontend Checkout UI (loading Razorpay's checkout.js, handling the async payment→webhook→attestation flow instead of the mock's synchronous response) is not wired up yet -- a real follow-up, not attempted speculatively without being able to verify the full loop. |
 | Bank reconciliation job | ✅ Done (CSV import, amount-based debit matching) | `backend/src/jobs/reconciliationJob.ts` + `backend/src/db/repositories/reconciliationRepo.ts` — manager-signed `POST /api/campaigns/:id/reconciliation/import` matches statement rows against donations/spends both directions (LLD §7.2), `npm run reconcile:nightly` re-runs matching for every active campaign. Credit rows match donations exactly by UTR hash; debit rows match spends by amount only, since `attestSpend` is still always called with `ethers.ZeroHash` for its UTR (see below) |
 
 **Known gap this doesn't fix:** spends still carry no real bank settlement UTR — `attestSpend` is always
@@ -112,14 +112,15 @@ a misleading claim.
    methodology published in-product; the other 2 terms are explicitly `pending`.
 2. ~~**MVP 1+ — Bank reconciliation job.**~~ ✅ Done (see above) — CSV import + amount-based debit
    matching; a real settlement-UTR-on-spend flow would sharpen the debit side but isn't blocking.
-3. ~~**MVP 3 — Real CSR portfolio data.**~~ ✅ Done (see above) — `GET /api/csr/portfolio` covers every
-   real on-chain campaign now, not just the one previously wired. Still open: the `GET
-   /api/csr/:companyId/report` PDF/XLSX export the LLD specifies (§9) — doesn't exist yet.
+3. ~~**MVP 3 — Real CSR data + export endpoint.**~~ ✅ Done (see above) — `GET /api/csr/portfolio` covers
+   every real on-chain campaign now, not just the one previously wired, and `GET
+   /api/csr/report?format=pdf|xlsx` delivers the LLD §9 export.
 4. ~~**Evidence storage upgrade.**~~ ✅ Done (see above) — real IPFS via Pinata available behind
    `EVIDENCE_STORAGE_BACKEND=ipfs`, not yet verified against a live account, and no redundant second
    provider yet.
-5. **MVP 1 — Real UPI PSP integration.** Swap the mocked webhook for a real Razorpay/Cashfree
-   integration — bigger lift (compliance, live money), reasonable to defer until the proof-side (3–4
-   above) is solid.
+5. ~~**MVP 1 — Real UPI PSP integration.**~~ ✅ Done, backend side (see above) — real Razorpay order
+   creation and webhook handling, live-verified against a test-mode account. Still open: the frontend
+   Checkout UI and the async payment→webhook→attestation UX it needs (the donate flow's "receipt" beat
+   currently assumes a synchronous confirmation, which only the mock flow provides).
 6. **MVP 4 — Network intelligence.** Correctly last: the LLD itself says not to build this until there's
    a real MVP3 dataset to validate collusion thresholds against.

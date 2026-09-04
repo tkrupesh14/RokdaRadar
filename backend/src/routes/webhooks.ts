@@ -29,14 +29,25 @@ export function createWebhooksRouter(): Router {
    * @openapi
    * /api/webhooks/upi:
    *   post:
-   *     summary: PSP webhook receiver (mocked PSP in MVP0)
-   *     description: Verifies X-Webhook-Signature (HMAC-SHA256), deduplicates by payment.id, hashes the VPA server-side, and calls attestDonation on-chain.
+   *     summary: PSP webhook receiver -- real Razorpay webhook, or the mocked PSP shape
+   *     description: >
+   *       Verifies the webhook signature, deduplicates by payment id, hashes the VPA server-side,
+   *       and calls attestDonation on-chain. Accepts two payload shapes: Razorpay's real documented
+   *       webhook format (payload.payment.entity, X-Razorpay-Signature header, verified against
+   *       RAZORPAY_WEBHOOK_SECRET when configured) and this project's original flat mock shape
+   *       (payload.payload.payment, X-Webhook-Signature header, verified against
+   *       WEBHOOK_HMAC_SECRET) -- the mock flow (POST /api/campaigns/:id/donate) still uses the
+   *       latter. See issue #6.
    *     tags: [Payments]
    *     parameters:
    *       - in: header
-   *         name: X-Webhook-Signature
-   *         required: true
+   *         name: X-Razorpay-Signature
    *         schema: { type: string }
+   *         description: Present on real Razorpay webhooks.
+   *       - in: header
+   *         name: X-Webhook-Signature
+   *         schema: { type: string }
+   *         description: Present on the mocked webhook shape (POST /api/campaigns/:id/donate's flow).
    *     requestBody:
    *       required: true
    *       content:
@@ -56,16 +67,35 @@ export function createWebhooksRouter(): Router {
   webhooksRouter.post("/api/webhooks/upi", webhookLimiter, raw({ type: "application/json" }), async (req, res, next) => {
     try {
       const rawBody = req.body as Buffer;
-      const signature = req.header("X-Webhook-Signature");
 
-      if (!verifyWebhookSignature(rawBody, signature)) {
-        res.status(401).json({ error: "UNAUTHORIZED", detail: "invalid or missing X-Webhook-Signature" });
+      // Real Razorpay webhooks arrive with X-Razorpay-Signature, verified
+      // against RAZORPAY_WEBHOOK_SECRET; the original mock shape arrives with
+      // X-Webhook-Signature, verified against WEBHOOK_HMAC_SECRET. Whichever
+      // header is present picks which secret verifies it -- never both.
+      const razorpaySignature = req.header("X-Razorpay-Signature");
+      const mockSignature = req.header("X-Webhook-Signature");
+
+      let verified: boolean;
+      if (razorpaySignature) {
+        verified = Boolean(env.RAZORPAY_WEBHOOK_SECRET) && verifyWebhookSignature(rawBody, razorpaySignature, env.RAZORPAY_WEBHOOK_SECRET);
+      } else {
+        verified = verifyWebhookSignature(rawBody, mockSignature);
+      }
+      if (!verified) {
+        res.status(401).json({ error: "UNAUTHORIZED", detail: "invalid or missing webhook signature" });
         return;
       }
 
       const payload = JSON.parse(rawBody.toString("utf8"));
-      const payment = payload?.payload?.payment;
-      if (!payment?.id || !payment?.utr || !payment?.amount || !payment?.notes?.campaignId) {
+      // Real Razorpay nests the payment under payload.payment.entity; the
+      // original mock shape has it directly under payload.payment. Support
+      // both rather than picking one and breaking the other.
+      const payment = payload?.payload?.payment?.entity ?? payload?.payload?.payment;
+      // Real Razorpay has no top-level `utr` on the payment entity -- for UPI
+      // payments the bank reference (UTR-equivalent) is acquirer_data.rrn.
+      // Falls back to `utr` for the mock shape.
+      const utr = payment?.acquirer_data?.rrn ?? payment?.utr;
+      if (!payment?.id || !utr || !payment?.amount || !payment?.notes?.campaignId) {
         res.status(400).json({ error: "BAD_REQUEST", detail: "malformed webhook payload" });
         return;
       }
@@ -85,7 +115,7 @@ export function createWebhooksRouter(): Router {
 
       // Raw UTR and VPA are hashed immediately and never stored/logged (LLD 7.1
       // step 3; HLD Section 6 trust boundary table).
-      const utrHash = ethers.keccak256(ethers.toUtf8Bytes(payment.utr));
+      const utrHash = ethers.keccak256(ethers.toUtf8Bytes(utr));
       const donorRef = ethers.keccak256(ethers.toUtf8Bytes(`${payment.vpa ?? "unknown"}:${env.WEBHOOK_HMAC_SECRET}`));
       const amountPaise = Number(payment.amount);
 
@@ -104,6 +134,7 @@ export function createWebhooksRouter(): Router {
       const receipt = await tx.wait();
 
       seenPaymentIds.set(payment.id, Date.now());
+
       res.status(200).json({ status: "confirmed", txHash: receipt.hash });
     } catch (err) {
       next(err);

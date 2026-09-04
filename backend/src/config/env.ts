@@ -42,6 +42,18 @@ const envSchema = z.object({
   ATTESTOR_ALLOWLIST: z.string().default(""),
   MANAGER_ALLOWLIST: z.string().default(""),
 
+  // Real Razorpay integration (LLD Section 7.1, issue #6), gated the same
+  // way as the AI provider keys: unset means the existing mocked
+  // donate/webhook flow keeps working exactly as before, so this ships
+  // additively. RAZORPAY_KEY_ID/SECRET authenticate Orders API calls
+  // (Basic Auth). RAZORPAY_WEBHOOK_SECRET verifies X-Razorpay-Signature on
+  // incoming webhooks -- it's whatever secret you configure in the Razorpay
+  // Dashboard (Settings > Webhooks) once a public webhook URL exists to
+  // register there; it is NOT returned by any API call.
+  RAZORPAY_KEY_ID: z.string().optional(),
+  RAZORPAY_KEY_SECRET: z.string().optional(),
+  RAZORPAY_WEBHOOK_SECRET: z.string().optional(),
+
   // Per-IP rate limits on public, chain-writing/abuse-prone endpoints. Both
   // endpoints below trigger an on-chain attestDonation call, so an unbounded
   // caller can burn oracle-wallet gas and DB/RPC capacity. Defaults are sized
@@ -162,3 +174,5 @@ export const resolvedAiProvider: "anthropic" | "gemini" | null = env.AI_PROVIDER
       : null;
 
 export const isAiConfigured = resolvedAiProvider !== null;
+
+export const isRazorpayConfigured = Boolean(env.RAZORPAY_KEY_ID && env.RAZORPAY_KEY_SECRET);
