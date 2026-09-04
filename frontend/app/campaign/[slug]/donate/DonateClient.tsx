@@ -354,7 +354,7 @@ export default function DonateClient({ campaign }: { campaign: CampaignDetail })
             {beat === "payment" && !isPaying && pspStatus !== "unknown" && (
               <>
                 {payError && (
-                  <p style={{ fontSize: 13, color: "var(--color-accent-800)", margin: "0 0 12px", textAlign: "center" }}>
+                  <p style={{ fontSize: 13, color: "var(--color-danger-700)", margin: "0 0 12px", textAlign: "center" }}>
                     {payError}
                   </p>
                 )}

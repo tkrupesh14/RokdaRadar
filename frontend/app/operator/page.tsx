@@ -187,7 +187,7 @@ export default function OperatorConsole() {
 
   if (!loggedIn) {
     return (
-      <div style={{ fontFamily: "var(--font-body)", minHeight: "100vh", background: "var(--color-neutral-900)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div style={{ fontFamily: "var(--font-body)", minHeight: "100vh", background: "var(--color-bg)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
         <div className="card elev-lg fade-in-up" style={{ width: "100%", maxWidth: 360, padding: 32 }}>
           <div style={{ fontSize: 12, letterSpacing: "0.06em", textTransform: "uppercase", fontWeight: 600, color: "var(--color-accent-700)", marginBottom: 6 }}>
             RokdaRadar — internal access
@@ -200,7 +200,7 @@ export default function OperatorConsole() {
             {connecting ? "Connecting…" : "Connect wallet"}
           </button>
           {connectError && (
-            <p style={{ fontSize: 12.5, color: "var(--color-accent-800)", margin: "12px 0 0" }}>{connectError}</p>
+            <p style={{ fontSize: 12.5, color: "var(--color-danger-700)", margin: "12px 0 0" }}>{connectError}</p>
           )}
           <p style={{ fontSize: 12, lineHeight: "19px", color: "color-mix(in srgb, var(--color-text) 60%, transparent)", margin: "16px 0 0" }}>
             Access is limited to verified relief operators. Donors and the public use the campaign page instead.
@@ -212,14 +212,14 @@ export default function OperatorConsole() {
 
   return (
     <div style={{ fontFamily: "var(--font-body)", minHeight: "100vh", background: "var(--color-bg)", color: "var(--color-text)" }}>
-      <header style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", padding: "16px clamp(16px,4vw,40px)", background: "var(--color-neutral-900)", color: "var(--color-neutral-100)" }}>
+      <header style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", padding: "16px clamp(16px,4vw,40px)", background: "rgba(255,255,255,0.04)", color: "var(--color-text)", borderBottom: "1px solid var(--glass-border)" }}>
         <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <Logo height={22} />
           <span style={{ fontFamily: "var(--font-heading)", fontSize: 17 }}>Operator</span>
         </span>
         <select
           className="op-select input"
-          style={{ width: "auto", maxWidth: 220, background: "var(--color-neutral-800)", color: "var(--color-neutral-100)", borderColor: "var(--color-neutral-700)" }}
+          style={{ width: "auto", maxWidth: 220, background: "rgba(255,255,255,0.06)", color: "var(--color-text)", borderColor: "var(--glass-border-bright)" }}
           value={campaign}
           onChange={(e) => setCampaign(e.target.value)}
         >
@@ -227,14 +227,14 @@ export default function OperatorConsole() {
           <option value="assam">Assam Flood Relief 2026</option>
           <option value="odisha">Odisha Cyclone Rebuild Fund</option>
         </select>
-        <span style={{ fontSize: 12, padding: "4px 10px", borderRadius: 999, background: "var(--color-neutral-800)" }}>
+        <span style={{ fontSize: 12, padding: "4px 10px", borderRadius: 999, background: "rgba(255,255,255,0.06)" }}>
           {network === "online" && "🟢 Online"}
           {network === "poor" && "📶 Poor connection — will sync later"}
           {network === "offline" && "📴 Offline — will sync later"}
         </span>
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12 }}>
-          <span style={{ fontSize: 13, color: "var(--color-neutral-300)" }}>{address ? shortHash(address) : ""}</span>
-          <button type="button" className="btn btn-secondary" style={{ background: "transparent", borderColor: "var(--color-neutral-700)", color: "var(--color-neutral-100)" }} onClick={onLogout}>
+          <span className="mono" style={{ fontSize: 13, color: "var(--color-neutral-700)" }}>{address ? shortHash(address) : ""}</span>
+          <button type="button" className="btn btn-secondary" style={{ background: "transparent", borderColor: "var(--glass-border-bright)", color: "var(--color-text)" }} onClick={onLogout}>
             Disconnect
           </button>
         </div>
@@ -322,7 +322,7 @@ export default function OperatorConsole() {
           </div>
 
           {!evidenceFile && (
-            <p style={{ fontSize: 12.5, color: "var(--color-accent-800)", margin: 0 }}>Evidence required to record a spend.</p>
+            <p style={{ fontSize: 12.5, color: "var(--color-danger-700)", margin: 0 }}>Evidence required to record a spend.</p>
           )}
 
           <button type="button" className="btn btn-primary btn-block" disabled={!canSubmit} onClick={onSubmit}>
@@ -372,8 +372,9 @@ export default function OperatorConsole() {
             position: "fixed",
             bottom: 24,
             left: "50%",
-            background: "var(--color-neutral-900)",
-            color: "var(--color-neutral-100)",
+            background: "#12151c",
+            color: "var(--color-text)",
+            border: "1px solid var(--glass-border-bright)",
             padding: "14px 20px",
             borderRadius: "var(--radius-md)",
             boxShadow: "var(--shadow-lg)",

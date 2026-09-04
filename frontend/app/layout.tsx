@@ -1,16 +1,26 @@
 import type { Metadata, Viewport } from "next";
-import { Caprasimo, Figtree } from "next/font/google";
+import { Space_Grotesk, Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
-const caprasimo = Caprasimo({
+// Space Grotesk for display: technical, slightly squared terminals that read
+// as engineered rather than decorative -- the point of the redesign.
+const spaceGrotesk = Space_Grotesk({
   variable: "--font-heading",
-  weight: "400",
+  weight: ["500", "600", "700"],
   subsets: ["latin"],
 });
 
-const figtree = Figtree({
+const inter = Inter({
   variable: "--font-body",
-  weight: ["400", "600", "700"],
+  weight: ["400", "500", "600", "700"],
+  subsets: ["latin"],
+});
+
+// Money, percentages and 0x hashes render in mono with tabular figures, so
+// verifiable data is visually distinct from prose and columns don't shift.
+const jetBrainsMono = JetBrains_Mono({
+  variable: "--font-mono",
+  weight: ["400", "500", "700"],
   subsets: ["latin"],
 });
 
@@ -23,11 +33,16 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  themeColor: "#08090c",
+  colorScheme: "dark",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${caprasimo.variable} ${figtree.variable}`}>
+    <html
+      lang="en"
+      className={`${spaceGrotesk.variable} ${inter.variable} ${jetBrainsMono.variable}`}
+    >
       <body>{children}</body>
     </html>
   );

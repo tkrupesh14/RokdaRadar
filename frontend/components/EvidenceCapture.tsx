@@ -230,7 +230,7 @@ export default function EvidenceCapture({
       <span style={{ fontSize: 12, color: "color-mix(in srgb, var(--color-text) 60%, transparent)", textAlign: "center" }}>
         Connect a phone as a USB camera, or use a webcam.
       </span>
-      {error && <p style={{ fontSize: 12.5, color: "var(--color-accent-800)", margin: 0, textAlign: "center" }}>{error}</p>}
+      {error && <p style={{ fontSize: 12.5, color: "var(--color-danger-700)", margin: 0, textAlign: "center" }}>{error}</p>}
     </div>
   );
 }
