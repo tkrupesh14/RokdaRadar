@@ -200,7 +200,7 @@ pendingSpendsRouter.post("/api/pending-spends/:id/approve", async (req, res, nex
       .find((p: any) => p?.name === "SpendAttested");
     const spendRef = parsed?.args?.spendRef as string | undefined;
 
-    if (spendRef) linkEvidenceToSpend(pending.campaign_id, pending.evidence_cid, spendRef, pending.evidence_mimetype);
+    if (spendRef) await linkEvidenceToSpend(pending.campaign_id, pending.evidence_cid, spendRef, pending.evidence_mimetype);
 
     await markApproved(id, body.authAddress, body.note ?? null, receipt.hash);
 

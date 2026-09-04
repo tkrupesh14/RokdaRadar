@@ -16,6 +16,19 @@ const envSchema = z.object({
   // tests at all if this is unset or equals DATABASE_URL.
   TEST_DATABASE_URL: z.string().optional(),
   EVIDENCE_DIR: z.string().default("./evidence-store"),
+  // "local" (default) is the MVP0 tier: filesystem + SHA-256 hash standing
+  // in for a real CID -- fine for dev/demo, doesn't survive redeploys or
+  // horizontal scaling. "ipfs" is the real LLD Section 6 MVP1 tier: pins to
+  // Pinata (PINATA_JWT required). LLD Section 6 also asks for a redundant
+  // pin to a second provider (e.g. web3.storage) so evidence survives one
+  // provider's outage -- not implemented yet (see evidence/pinataClient.ts's
+  // comment on why: this integration couldn't be verified against a live
+  // account in the environment it was written in, and a second provider
+  // doubles that unverified surface for comparatively little benefit at
+  // MVP1 scale). Worth adding once the primary pin path is confirmed
+  // working against a real account.
+  EVIDENCE_STORAGE_BACKEND: z.enum(["local", "ipfs"]).default("local"),
+  PINATA_JWT: z.string().optional(),
 
   MONAD_TESTNET_RPC_URL: z.string().default("https://testnet-rpc.monad.xyz"),
   MONAD_TESTNET_CHAIN_ID: z.coerce.number().default(10143),
@@ -28,6 +41,18 @@ const envSchema = z.object({
   WEBHOOK_HMAC_SECRET: z.string().default("change-me-dev-secret"),
   ATTESTOR_ALLOWLIST: z.string().default(""),
   MANAGER_ALLOWLIST: z.string().default(""),
+
+  // Real Razorpay integration (LLD Section 7.1, issue #6), gated the same
+  // way as the AI provider keys: unset means the existing mocked
+  // donate/webhook flow keeps working exactly as before, so this ships
+  // additively. RAZORPAY_KEY_ID/SECRET authenticate Orders API calls
+  // (Basic Auth). RAZORPAY_WEBHOOK_SECRET verifies X-Razorpay-Signature on
+  // incoming webhooks -- it's whatever secret you configure in the Razorpay
+  // Dashboard (Settings > Webhooks) once a public webhook URL exists to
+  // register there; it is NOT returned by any API call.
+  RAZORPAY_KEY_ID: z.string().optional(),
+  RAZORPAY_KEY_SECRET: z.string().optional(),
+  RAZORPAY_WEBHOOK_SECRET: z.string().optional(),
 
   // Per-IP rate limits on public, chain-writing/abuse-prone endpoints. Both
   // endpoints below trigger an on-chain attestDonation call, so an unbounded
@@ -110,6 +135,13 @@ function loadEnv(): Env {
     console.error("Invalid environment configuration:", parsed.error.flatten().fieldErrors);
     throw new Error("Invalid environment configuration");
   }
+  // Fail fast rather than silently keeping evidence on ephemeral local disk
+  // while the operator believes it's configured for durable IPFS storage --
+  // the whole point of issue #9 is that local storage doesn't survive
+  // redeploys, so silently falling back here would defeat it invisibly.
+  if (parsed.data.EVIDENCE_STORAGE_BACKEND === "ipfs" && !parsed.data.PINATA_JWT) {
+    throw new Error("EVIDENCE_STORAGE_BACKEND=ipfs requires PINATA_JWT to be set");
+  }
   assertProductionSecretsAreSafe(parsed.data);
   return parsed.data;
 }
@@ -142,3 +174,5 @@ export const resolvedAiProvider: "anthropic" | "gemini" | null = env.AI_PROVIDER
       : null;
 
 export const isAiConfigured = resolvedAiProvider !== null;
+
+export const isRazorpayConfigured = Boolean(env.RAZORPAY_KEY_ID && env.RAZORPAY_KEY_SECRET);

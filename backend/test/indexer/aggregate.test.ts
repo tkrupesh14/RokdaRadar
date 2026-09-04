@@ -142,15 +142,17 @@ describe("aggregate correctness against a hand-computed fixture", () => {
     expect(agg.evidencedSpendPct).toBe(100);
   });
 
-  it("computes trustScore from only the 2 real terms, reweighted 30:25 -> 6/11:5/11", async () => {
+  it("computes reconciliationMatchPct = 0 when no bank statement has been imported for this campaign", async () => {
     const agg = (await computeAggregate(1))!;
-    // evidencedSpendPct=100, deliveryAttestedPct=100/3 -> 6/11*100 + 5/11*(100/3) = 69.7 -> rounds to 70
-    expect(agg.trustScore).toBe(70);
-    expect(agg.trustScoreBreakdown.pending).toEqual([
-      "reconciliationMatchPct",
-      "promiseAlignmentScore",
-      "attestorDiversityScore",
-    ]);
+    expect(agg.reconciliationMatchPct).toBe(0);
+  });
+
+  it("computes trustScore from the 3 real terms, reweighted 30:25:20 -> 30/75:25/75:20/75", async () => {
+    const agg = (await computeAggregate(1))!;
+    // evidencedSpendPct=100, deliveryAttestedPct=33.3, reconciliationMatchPct=0 (no statement imported)
+    // -> 0.4*100 + (25/75)*33.3 + (20/75)*0 = 40 + 11.1 = 51.1 -> rounds to 51
+    expect(agg.trustScore).toBe(51);
+    expect(agg.trustScoreBreakdown.pending).toEqual(["promiseAlignmentScore", "attestorDiversityScore"]);
   });
 
   it("builds txIndex keyed by spendRef and by campaignId for the creation tx", async () => {

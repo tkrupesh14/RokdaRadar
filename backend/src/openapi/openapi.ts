@@ -25,6 +25,8 @@ const definition = {
     { name: "Review" },
     { name: "Delivery" },
     { name: "Reports" },
+    { name: "CSR" },
+    { name: "Reconciliation" },
     { name: "Health" },
   ],
   components: {
@@ -99,19 +101,25 @@ const definition = {
           medianDisbursementLatencyHours: { type: "number" },
           evidencedSpendPct: { type: "number" },
           deliveryAttestedPct: { type: "number" },
+          reconciliationMatchPct: { type: "number" },
           trustScore: {
             type: "integer",
             description:
-              "0-100. Partial by design: only 2 of the 5 LLD Section 8 terms are computed today (see trustScoreBreakdown.pending) -- reweighted so the two real terms sum to 1.",
+              "0-100. Partial by design: only 3 of the 5 LLD Section 8 terms are computed today (see trustScoreBreakdown.pending) -- reweighted so the three real terms sum to 1.",
           },
           trustScoreBreakdown: {
             type: "object",
             properties: {
               evidencedSpendPct: { type: "number" },
               deliveryAttestedPct: { type: "number" },
+              reconciliationMatchPct: { type: "number" },
               weights: {
                 type: "object",
-                properties: { evidencedSpendPct: { type: "number" }, deliveryAttestedPct: { type: "number" } },
+                properties: {
+                  evidencedSpendPct: { type: "number" },
+                  deliveryAttestedPct: { type: "number" },
+                  reconciliationMatchPct: { type: "number" },
+                },
               },
               pending: { type: "array", items: { type: "string" } },
             },
@@ -204,6 +212,8 @@ const definition = {
       },
       UpiWebhookPayload: {
         type: "object",
+        description:
+          "Simplified/mock shape shown here. Real Razorpay webhooks additionally nest the payment under payload.payment.entity and carry the UPI reference under payment.entity.acquirer_data.rrn instead of a top-level utr -- both shapes are accepted, see routes/webhooks.ts.",
         properties: {
           event: { type: "string", example: "payment.captured" },
           payload: {
@@ -218,6 +228,65 @@ const definition = {
                   vpa: { type: "string" },
                   notes: { type: "object", properties: { campaignId: { type: "string" } } },
                 },
+              },
+            },
+          },
+        },
+      },
+      CsrPortfolio: {
+        type: "object",
+        description: "One shared portfolio across every real on-chain campaign -- no company/donor attribution exists, see the route's own description.",
+        properties: {
+          campaignCount: { type: "integer" },
+          totalRaisedPaise: { type: "integer" },
+          totalSpentPaise: { type: "integer" },
+          avgTrustScore: { type: "integer" },
+          avgEvidencedSpendPct: { type: "number", description: "Spend-weighted, not a simple average across campaigns." },
+          campaignsWithAnomalies: { type: "integer" },
+          campaigns: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                campaignId: { type: "integer" },
+                operator: { type: "string" },
+                disasterTag: { type: "string" },
+                darpanId: { type: "string", nullable: true },
+                reg80G: { type: "string", nullable: true },
+                active: { type: "boolean" },
+                raisedPaise: { type: "integer" },
+                spentPaise: { type: "integer" },
+                trustScore: { type: "integer" },
+                evidencedSpendPct: { type: "number" },
+                anomalyCount: { type: "integer" },
+              },
+            },
+          },
+        },
+      },
+      ReconciliationSummary: {
+        type: "object",
+        description: "LLD Section 7.2 bank reconciliation result for one campaign.",
+        properties: {
+          campaignId: { type: "integer" },
+          statementLineCount: { type: "integer" },
+          matchedDonationCount: { type: "integer" },
+          totalDonationCount: { type: "integer" },
+          matchedSpendCount: { type: "integer" },
+          totalSpendCount: { type: "integer" },
+          reconciliationMatchPct: { type: "number" },
+          flags: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                direction: { type: "string", enum: ["credit", "debit"] },
+                reason: {
+                  type: "string",
+                  enum: ["unattested_inbound", "unattested_outbound", "unbacked_donation", "unbacked_spend"],
+                },
+                amountPaise: { type: "integer" },
+                ref: { type: "string" },
               },
             },
           },
