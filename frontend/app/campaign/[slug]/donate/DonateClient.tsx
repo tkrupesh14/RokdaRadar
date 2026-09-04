@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import TxModal from "@/components/TxModal";
 import Logo from "@/components/Logo";
+import HashChip from "@/components/HashChip";
 import { donateToCampaign } from "@/lib/api";
 import { explorerTxUrl, fmtINR, shortHash } from "@/lib/format";
 import type { CampaignDetail } from "@/lib/campaigns";
@@ -13,6 +14,7 @@ const CHIP_AMOUNTS = [100, 500, 2000, 5000];
 type Beat = "amount" | "payment" | "receipt";
 
 export default function DonateClient({ campaign }: { campaign: CampaignDetail }) {
+  const customAmountId = useId();
   const [selectedAmount, setSelectedAmount] = useState<number | null>(null);
   const [customAmount, setCustomAmount] = useState("");
   const [beat, setBeat] = useState<Beat>("amount");
@@ -23,6 +25,17 @@ export default function DonateClient({ campaign }: { campaign: CampaignDetail })
 
   const amount = selectedAmount || Number(customAmount) || 0;
   const amountDisplay = fmtINR(amount);
+
+  // Each beat replaces the page's main content with no navigation and no
+  // URL change, so nothing tells a screen-reader or keyboard user that new
+  // content appeared -- move focus to the new step's heading, the same way
+  // a page navigation would land focus at the top of a new page.
+  const paymentHeadingRef = useRef<HTMLHeadingElement>(null);
+  const receiptHeadingRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (beat === "payment") paymentHeadingRef.current?.focus();
+    if (beat === "receipt") receiptHeadingRef.current?.focus();
+  }, [beat]);
 
   const pickChip = (amt: number) => {
     setSelectedAmount(amt);
@@ -95,6 +108,7 @@ export default function DonateClient({ campaign }: { campaign: CampaignDetail })
                   type="button"
                   className="chip-btn"
                   onClick={() => pickChip(amt)}
+                  aria-pressed={active}
                   style={{
                     padding: "10px 4px",
                     borderRadius: 999,
@@ -115,8 +129,9 @@ export default function DonateClient({ campaign }: { campaign: CampaignDetail })
             })}
           </div>
           <div className="field" style={{ marginTop: 14 }}>
-            <label>Or enter an amount</label>
+            <label htmlFor={customAmountId}>Or enter an amount</label>
             <input
+              id={customAmountId}
               className="input"
               type="number"
               min={1}
@@ -141,11 +156,14 @@ export default function DonateClient({ campaign }: { campaign: CampaignDetail })
 
         {/* BEAT 2: UPI payment */}
         {beat !== "amount" && (
-          <section style={{ animation: "popin 180ms ease-out", borderTop: "1px solid var(--color-divider)", paddingTop: 32 }}>
+          <section className="beat-enter" style={{ borderTop: "1px solid var(--color-divider)", paddingTop: 32 }}>
             <div style={{ textAlign: "center", marginBottom: 22 }}>
-              <div
+              <h2
+                ref={paymentHeadingRef}
+                tabIndex={-1}
                 style={{
                   fontSize: 12,
+                  fontWeight: 400,
                   color: "color-mix(in srgb, var(--color-text) 65%, transparent)",
                   textTransform: "uppercase",
                   letterSpacing: "0.06em",
@@ -153,7 +171,7 @@ export default function DonateClient({ campaign }: { campaign: CampaignDetail })
                 }}
               >
                 Paying
-              </div>
+              </h2>
               <div style={{ fontFamily: "var(--font-heading)", fontWeight: 400, fontSize: 38 }}>{amountDisplay}</div>
             </div>
             <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
@@ -180,8 +198,9 @@ export default function DonateClient({ campaign }: { campaign: CampaignDetail })
               <span className="tag tag-outline">Other UPI ID</span>
             </div>
             {beat === "payment" && isPaying && (
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: 14 }}>
+              <div role="status" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: 14 }}>
                 <span
+                  aria-hidden="true"
                   style={{
                     width: 18,
                     height: 18,
@@ -214,7 +233,10 @@ export default function DonateClient({ campaign }: { campaign: CampaignDetail })
 
         {/* BEAT 3: receipt */}
         {beat === "receipt" && (
-          <section style={{ animation: "popin 180ms ease-out", borderTop: "1px solid var(--color-divider)", paddingTop: 32, textAlign: "center" }}>
+          <section className="beat-enter" style={{ borderTop: "1px solid var(--color-divider)", paddingTop: 32, textAlign: "center" }}>
+            <h2 ref={receiptHeadingRef} tabIndex={-1} className="sr-only">
+              Donation complete
+            </h2>
             <div
               className="pop-scale"
               style={{
@@ -238,24 +260,13 @@ export default function DonateClient({ campaign }: { campaign: CampaignDetail })
             </div>
             {txHash && (
               <div className="fade-in-up" style={{ display: "flex", justifyContent: "center", marginBottom: 24, animationDelay: "180ms" }}>
-                <span
-                  className="hash-chip"
-                  onClick={() => setModalOpen(true)}
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 5,
-                    fontSize: 13,
-                    color: "var(--color-accent-2-800)",
-                    background: "var(--color-accent-2-100)",
-                    borderRadius: 999,
-                    padding: "5px 12px",
-                    cursor: "pointer",
-                    transition: "background 160ms var(--ease-out), transform 160ms var(--ease-out)",
-                  }}
-                >
-                  ⧉ {shortHash(txHash)}
-                </span>
+                <HashChip
+                  hash={shortHash(txHash)}
+                  label={`View transaction proof, ${amountDisplay}`}
+                  onOpen={() => setModalOpen(true)}
+                  fontSize={13}
+                  padding="5px 12px"
+                />
               </div>
             )}
             <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 320, margin: "0 auto" }}>
@@ -288,6 +299,15 @@ export default function DonateClient({ campaign }: { campaign: CampaignDetail })
         .chip-btn:not(:disabled):active { transform: scale(0.96) !important; }
         .hash-chip:hover { background: var(--color-accent-2-200); transform: translateY(-1px); }
         .hash-chip:active { transform: translateY(0) scale(0.97); }
+        .beat-enter { animation: popin 180ms ease-out; }
+        .sr-only {
+          position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+          overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .beat-enter { animation: none !important; }
+          .chip-btn:not(:disabled):active, .hash-chip:hover, .hash-chip:active { transform: none !important; }
+        }
       `}</style>
     </div>
   );

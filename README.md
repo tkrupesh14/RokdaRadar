@@ -14,6 +14,7 @@ The repo has two apps plus the on-chain contract:
   [frontend/README.md](frontend/README.md))
 - `ReliefTrace_HLD.md` / `ReliefTrace_LLD.md` — high-level and low-level design docs the implementation follows
 - `STATUS.md` — what's actually built vs. planned (checked against the code, not just the docs' intent), and the current next-up priority order
+- `CONTRIBUTING.md` — guidelines for contributing: branching, commits, code style, testing, and PR expectations
 
 ## Prerequisites
 

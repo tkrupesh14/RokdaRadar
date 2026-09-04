@@ -8,8 +8,8 @@ import { healthRouter } from "./routes/health.js";
 import { campaignsRouter } from "./routes/campaigns.js";
 import { aggregateRouter } from "./routes/aggregate.js";
 import { feedRouter } from "./routes/feed.js";
-import { donateRouter } from "./routes/donate.js";
-import { webhooksRouter } from "./routes/webhooks.js";
+import { createDonateRouter } from "./routes/donate.js";
+import { createWebhooksRouter } from "./routes/webhooks.js";
 import { spendRouter } from "./routes/spend.js";
 import { deliveryRouter } from "./routes/delivery.js";
 import { reportRouter } from "./routes/report.js";
@@ -25,7 +25,7 @@ export function createApp() {
   // Webhook route needs the raw body for HMAC verification, so it registers
   // its own express.raw() middleware and must be mounted before the global
   // express.json() parser below.
-  app.use(webhooksRouter);
+  app.use(createWebhooksRouter());
 
   app.use(express.json());
 
@@ -36,7 +36,7 @@ export function createApp() {
   app.use(campaignsRouter);
   app.use(aggregateRouter);
   app.use(feedRouter);
-  app.use(donateRouter);
+  app.use(createDonateRouter());
   app.use(spendRouter);
   app.use(deliveryRouter);
   app.use(reportRouter);

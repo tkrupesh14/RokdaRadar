@@ -1,13 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import TxModal from "@/components/TxModal";
 import ImagePlaceholder from "@/components/ImagePlaceholder";
 import Logo from "@/components/Logo";
+import HashChip from "@/components/HashChip";
 import { fmtINR } from "@/lib/format";
-import type { CampaignDetail, LedgerRow, RelatedCampaign } from "@/lib/campaigns";
+import { useModalA11y } from "@/lib/useModalA11y";
+import type { CampaignDetail, LedgerRow, RelatedCampaign, TrustScoreBreakdown } from "@/lib/campaigns";
 import type { ApiReport } from "@/lib/api";
 
 type ModalData = {
@@ -247,26 +249,7 @@ export default function CampaignClient({
                     <p style={{ fontSize: 15, lineHeight: "27px", margin: 0, color: "color-mix(in srgb, var(--color-text) 82%, transparent)" }}>
                       Over the past 7 days, <b>₹3,42,000</b> was disbursed across food, shelter and medical supplies.
                       Every spend below carries vendor evidence and is confirmed on Monad{" "}
-                      <span
-                        className="hash-chip"
-                        onClick={() => openModal(aiRecord)}
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 4,
-                          fontSize: 13,
-                          color: "var(--color-accent-2-800)",
-                          background: "var(--color-accent-2-100)",
-                          borderRadius: 999,
-                          padding: "2px 10px",
-                          cursor: "pointer",
-                          whiteSpace: "nowrap",
-                          transition: "background 160ms var(--ease-out), transform 160ms var(--ease-out)",
-                        }}
-                      >
-                        ⧉ {aiRecord.hash}
-                      </span>
-                      .
+                      <HashChip hash={aiRecord.hash} onOpen={() => openModal(aiRecord)} fontSize={13} padding="2px 10px" />.
                     </p>
                   </>
                 )}
@@ -298,25 +281,11 @@ export default function CampaignClient({
                       </td>
                       <td>{fmtINR(row.amount)}</td>
                       <td>
-                        <span
-                          className="hash-chip"
-                          onClick={() => openModal(row)}
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: 4,
-                            fontSize: 12.5,
-                            color: "var(--color-accent-2-800)",
-                            background: "var(--color-accent-2-100)",
-                            borderRadius: 999,
-                            padding: "2px 9px",
-                            cursor: "pointer",
-                            whiteSpace: "nowrap",
-                            transition: "background 160ms var(--ease-out), transform 160ms var(--ease-out)",
-                          }}
-                        >
-                          ⧉ {row.hash}
-                        </span>
+                        <HashChip
+                          hash={row.hash}
+                          label={`View transaction proof for ${row.desc}, ${row.date}`}
+                          onOpen={() => openModal(row)}
+                        />
                       </td>
                     </tr>
                   ))}
@@ -447,7 +416,7 @@ export default function CampaignClient({
             </div>
 
             <div className="card elev-sm" style={{ padding: 22, alignItems: "center", textAlign: "center" }}>
-              <svg width="88" height="88" viewBox="0 0 88 88">
+              <svg width="88" height="88" viewBox="0 0 88 88" role="img" aria-label={`Trust score: ${campaign.trustScore} out of 100`}>
                 <circle cx="44" cy="44" r="37" fill="none" stroke="var(--color-neutral-200)" strokeWidth="8" />
                 <circle
                   className="ring-fill"
@@ -465,7 +434,7 @@ export default function CampaignClient({
                   }}
                   transform="rotate(-90 44 44)"
                 />
-                <text x="44" y="50" textAnchor="middle" fontFamily="var(--font-heading)" fontSize="20" fill="var(--color-text)">
+                <text aria-hidden="true" x="44" y="50" textAnchor="middle" fontFamily="var(--font-heading)" fontSize="20" fill="var(--color-text)">
                   {campaign.trustScore}
                 </text>
               </svg>
@@ -525,47 +494,67 @@ export default function CampaignClient({
       )}
 
       {showTrustInfo && campaign.trustScoreBreakdown && (
-        <div className="dialog-backdrop" style={{ position: "fixed", inset: 0, zIndex: 50 }} onClick={() => setShowTrustInfo(false)}>
-          <div className="dialog" onClick={(e) => e.stopPropagation()}>
-            <h3 className="dialog-title">How this score is calculated</h3>
-            <div className="dialog-body" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <p style={{ margin: 0 }}>
-                Computed server-side from on-chain data, never by AI. The published formula has 5 weighted
-                factors; 3 are live today:
-              </p>
-              <p style={{ margin: 0 }}>
-                <b>{Math.round(campaign.trustScoreBreakdown.weights.evidencedSpendPct * 100)}%</b> weight —
-                spend with evidence on file: <b>{campaign.trustScoreBreakdown.evidencedSpendPct}%</b>
-              </p>
-              <p style={{ margin: 0 }}>
-                <b>{Math.round(campaign.trustScoreBreakdown.weights.deliveryAttestedPct * 100)}%</b> weight —
-                spend with an independent delivery attestation: <b>{campaign.trustScoreBreakdown.deliveryAttestedPct}%</b>
-              </p>
-              <p style={{ margin: 0 }}>
-                <b>{Math.round(campaign.trustScoreBreakdown.weights.reconciliationMatchPct * 100)}%</b> weight —
-                donations/spends matched against the campaign's bank statement:{" "}
-                <b>{campaign.trustScoreBreakdown.reconciliationMatchPct}%</b>
-              </p>
-              <p style={{ margin: 0, fontSize: 12.5, opacity: 0.75 }}>
-                Promise-alignment and attestor-diversity checks are being built next and will be added to
-                this score as they ship — this score reflects only what&apos;s verifiable today, not a
-                final rating.
-              </p>
-            </div>
-            <div className="dialog-actions">
-              <button type="button" className="btn btn-secondary" onClick={() => setShowTrustInfo(false)}>
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
+        <TrustInfoDialog breakdown={campaign.trustScoreBreakdown} onClose={() => setShowTrustInfo(false)} />
       )}
 
       <style>{`
         .gallery-frame:hover .gallery-img { transform: scale(1.05); }
         .hash-chip:hover { background: var(--color-accent-2-200); transform: translateY(-1px); }
         .hash-chip:active { transform: translateY(0) scale(0.97); }
+        @media (prefers-reduced-motion: reduce) {
+          .gallery-frame:hover .gallery-img, .hash-chip:hover, .hash-chip:active { transform: none !important; }
+        }
       `}</style>
+    </div>
+  );
+}
+
+function TrustInfoDialog({ breakdown, onClose }: { breakdown: TrustScoreBreakdown; onClose: () => void }) {
+  const dialogRef = useModalA11y(onClose);
+  const titleId = useId();
+
+  return (
+    <div className="dialog-backdrop" style={{ position: "fixed", inset: 0, zIndex: 50 }} onClick={onClose}>
+      <div
+        className="dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        ref={dialogRef}
+        tabIndex={-1}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="dialog-title" id={titleId}>How this score is calculated</h3>
+        <div className="dialog-body" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <p style={{ margin: 0 }}>
+            Computed server-side from on-chain data, never by AI. The published formula has 5 weighted
+            factors; 3 are live today:
+          </p>
+          <p style={{ margin: 0 }}>
+            <b>{Math.round(breakdown.weights.evidencedSpendPct * 100)}%</b> weight —
+            spend with evidence on file: <b>{breakdown.evidencedSpendPct}%</b>
+          </p>
+          <p style={{ margin: 0 }}>
+            <b>{Math.round(breakdown.weights.deliveryAttestedPct * 100)}%</b> weight —
+            spend with an independent delivery attestation: <b>{breakdown.deliveryAttestedPct}%</b>
+          </p>
+          <p style={{ margin: 0 }}>
+            <b>{Math.round(breakdown.weights.reconciliationMatchPct * 100)}%</b> weight —
+            donations/spends matched against the campaign's bank statement:{" "}
+            <b>{breakdown.reconciliationMatchPct}%</b>
+          </p>
+          <p style={{ margin: 0, fontSize: 12.5, opacity: 0.75 }}>
+            Promise-alignment and attestor-diversity checks are being built next and will be added to
+            this score as they ship — this score reflects only what&apos;s verifiable today, not a
+            final rating.
+          </p>
+        </div>
+        <div className="dialog-actions">
+          <button type="button" className="btn btn-secondary" onClick={onClose}>
+            Close
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
