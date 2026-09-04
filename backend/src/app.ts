@@ -14,6 +14,7 @@ import { spendRouter } from "./routes/spend.js";
 import { deliveryRouter } from "./routes/delivery.js";
 import { reportRouter } from "./routes/report.js";
 import { pendingSpendsRouter } from "./routes/pendingSpends.js";
+import { csrRouter } from "./routes/csr.js";
 import { reconciliationRouter } from "./routes/reconciliation.js";
 
 export function createApp() {
@@ -41,6 +42,7 @@ export function createApp() {
   app.use(deliveryRouter);
   app.use(reportRouter);
   app.use(pendingSpendsRouter);
+  app.use(csrRouter);
   app.use(reconciliationRouter);
 
   app.use(errorHandler);
