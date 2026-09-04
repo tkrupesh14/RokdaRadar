@@ -25,13 +25,14 @@ export type ApiCampaign = {
 export type ApiVendorConcentration = { vendorRef: string; sharePct: number; spendCount: number };
 export type ApiAnomalyCandidate = { spendRef: string; reason: string; value: number | string };
 
-// Partial by design (LLD Section 8): only 2 of the formula's 5 terms have
+// Partial by design (LLD Section 8): only 3 of the formula's 5 terms have
 // real backing data today. `pending` lists the rest so the UI can disclose
 // the score is provisional rather than implying it's the full formula.
 export type ApiTrustScoreBreakdown = {
   evidencedSpendPct: number;
   deliveryAttestedPct: number;
-  weights: { evidencedSpendPct: number; deliveryAttestedPct: number };
+  reconciliationMatchPct: number;
+  weights: { evidencedSpendPct: number; deliveryAttestedPct: number; reconciliationMatchPct: number };
   pending: string[];
 };
 
@@ -50,6 +51,7 @@ export type ApiAggregate = {
   medianDisbursementLatencyHours: number;
   evidencedSpendPct: number;
   deliveryAttestedPct: number;
+  reconciliationMatchPct: number;
   trustScore: number;
   trustScoreBreakdown: ApiTrustScoreBreakdown;
   anomalyCandidates: ApiAnomalyCandidate[];
@@ -160,6 +162,45 @@ export function getReport(id: number) {
 
 export function listCampaigns() {
   return safeFetch<{ campaigns: ApiCampaign[] }>(`/api/campaigns`);
+}
+
+export type ApiCsrPortfolioCampaign = {
+  campaignId: number;
+  operator: string;
+  disasterTag: string;
+  darpanId: string | null;
+  reg80G: string | null;
+  active: boolean;
+  raisedPaise: number;
+  spentPaise: number;
+  trustScore: number;
+  evidencedSpendPct: number;
+  anomalyCount: number;
+};
+
+// One shared portfolio across every real on-chain campaign -- there's no
+// company/donor-attribution data model in this system, see the backend
+// route's own description (src/routes/csr.ts).
+export type ApiCsrPortfolio = {
+  campaignCount: number;
+  totalRaisedPaise: number;
+  totalSpentPaise: number;
+  avgTrustScore: number;
+  /** Spend-weighted, not a simple average across campaigns. */
+  avgEvidencedSpendPct: number;
+  campaignsWithAnomalies: number;
+  campaigns: ApiCsrPortfolioCampaign[];
+};
+
+export function getCsrPortfolio() {
+  return safeFetch<ApiCsrPortfolio>(`/api/csr/portfolio`);
+}
+
+// Direct download link, not a safeFetch() JSON call -- the browser navigates
+// to this URL (or an <a download> triggers it) to stream the generated
+// file, same as any other file-download endpoint.
+export function csrReportUrl(format: "pdf" | "xlsx"): string {
+  return `${API_BASE_URL}/api/csr/report?format=${format}`;
 }
 
 export type ApiDonateResponse = {

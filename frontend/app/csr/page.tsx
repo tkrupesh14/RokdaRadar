@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { CAT_COLORS, CSR_CAMPAIGNS, type CsrCampaign } from "@/lib/csrData";
-import { getAggregate } from "@/lib/api";
+import { getCsrPortfolio, csrReportUrl, type ApiCsrPortfolio } from "@/lib/api";
 import { fmtINR, paiseToRupees } from "@/lib/format";
 import Logo from "@/components/Logo";
 
@@ -22,33 +22,36 @@ export default function CsrDashboard() {
   const [anomalyFilter, setAnomalyFilter] = useState<AnomalyFilter>("all");
   const [reportOpen, setReportOpen] = useState(false);
 
-  // Overlays real raised/spent/anomaly data from the backend for any entry
-  // with a backendId (currently just Wayanad -- see lib/csrData.ts). org/
-  // region/category/trust have no backend equivalent yet and stay static.
-  // Falls back to the untouched mock row if the backend has no campaign
-  // there yet, which is expected until a real on-chain campaign is created.
+  // Overlays real raised/spent/trust/anomaly data from the backend for
+  // every mock row that has a backendId. There's no company/donor-
+  // attribution data model in this system (donations are anonymous UPI
+  // payments), so this is one shared portfolio across every real on-chain
+  // campaign, not a per-company subset -- matches the dashboard's actual
+  // design (see backend/src/routes/csr.ts). org/region/category have no
+  // backend equivalent and stay static. Falls back to the untouched mock
+  // row for any backendId the portfolio response doesn't include.
   const [campaigns, setCampaigns] = useState<CsrCampaign[]>(CSR_CAMPAIGNS);
+  const [portfolio, setPortfolio] = useState<ApiCsrPortfolio | null>(null);
 
   useEffect(() => {
-    // Explicit undefined check: campaignId 0 is a valid real backend id
-    // (contract's campaignCount starts at 0) and a truthy check would wrongly
-    // skip it since 0 is falsy in JS.
-    const withBackendId = CSR_CAMPAIGNS.filter((c) => c.backendId !== undefined);
-    if (withBackendId.length === 0) return;
-
     let cancelled = false;
-    Promise.all(withBackendId.map((c) => getAggregate(c.backendId!))).then((results) => {
-      if (cancelled) return;
+    getCsrPortfolio().then((result) => {
+      if (cancelled || !result) return;
+      setPortfolio(result);
       setCampaigns((prev) =>
         prev.map((c) => {
-          const idx = withBackendId.indexOf(c);
-          const aggregate = idx >= 0 ? results[idx] : null;
-          if (!aggregate) return c;
+          // Explicit undefined check: campaignId 0 is a valid real backend id
+          // (contract's campaignCount starts at 0) and a truthy check would
+          // wrongly skip it since 0 is falsy in JS.
+          if (c.backendId === undefined) return c;
+          const real = result.campaigns.find((rc) => rc.campaignId === c.backendId);
+          if (!real) return c;
           return {
             ...c,
-            raised: paiseToRupees(aggregate.raisedPaise),
-            spent: paiseToRupees(aggregate.spentPaise),
-            anomaly: aggregate.anomalyCandidates.length > 0,
+            raised: paiseToRupees(real.raisedPaise),
+            spent: paiseToRupees(real.spentPaise),
+            trust: real.trustScore,
+            anomaly: real.anomalyCount > 0,
           };
         })
       );
@@ -71,6 +74,17 @@ export default function CsrDashboard() {
       return true;
     });
   }, [campaigns, search, region, categoryFilter, trustFilter, anomalyFilter]);
+
+  // Summary tiles: computed from `campaigns` (real data overlaid where a
+  // backendId matched, static mock otherwise), not hardcoded -- a strict
+  // improvement over a fixed string even though most entries are still mock
+  // (see the overlay effect above for why: no per-company real data exists).
+  const portfolioTotals = useMemo(() => {
+    const totalDisbursed = campaigns.reduce((sum, c) => sum + c.spent, 0);
+    const avgTrust = campaigns.length > 0 ? Math.round(campaigns.reduce((sum, c) => sum + c.trust, 0) / campaigns.length) : 0;
+    const openAnomalies = campaigns.filter((c) => c.anomaly).length;
+    return { totalDisbursed, avgTrust, openAnomalies, campaignCount: campaigns.length };
+  }, [campaigns]);
 
   const regionOptions = useMemo(() => [...new Set(CSR_CAMPAIGNS.map((c) => c.region))], []);
   const categoryOptions = useMemo(() => [...new Set(CSR_CAMPAIGNS.map((c) => c.category))], []);
@@ -168,25 +182,27 @@ export default function CsrDashboard() {
         <div className="stagger-list" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 10, marginBottom: 28 }}>
           <div className="card elev-sm" style={{ padding: "14px 16px" }}>
             <div style={{ fontSize: 10.5, textTransform: "uppercase", letterSpacing: "0.05em", color: "color-mix(in srgb, var(--color-text) 60%, transparent)" }}>Total disbursed</div>
-            <div style={{ fontFamily: "var(--font-heading)", fontSize: 21, marginTop: 6 }}>₹86,40,000</div>
+            <div style={{ fontFamily: "var(--font-heading)", fontSize: 21, marginTop: 6 }}>{fmtINR(portfolioTotals.totalDisbursed)}</div>
           </div>
           <div className="card elev-sm" style={{ padding: "14px 16px" }}>
             <div style={{ fontSize: 10.5, textTransform: "uppercase", letterSpacing: "0.05em", color: "color-mix(in srgb, var(--color-text) 60%, transparent)" }}>Campaigns supported</div>
-            <div style={{ fontFamily: "var(--font-heading)", fontSize: 21, marginTop: 6 }}>8</div>
+            <div style={{ fontFamily: "var(--font-heading)", fontSize: 21, marginTop: 6 }}>{portfolioTotals.campaignCount}</div>
           </div>
           <div className="card elev-sm" style={{ padding: "14px 16px" }}>
             <div style={{ fontSize: 10.5, textTransform: "uppercase", letterSpacing: "0.05em", color: "color-mix(in srgb, var(--color-text) 60%, transparent)" }}>Avg. trust score</div>
-            <div style={{ fontFamily: "var(--font-heading)", fontSize: 21, marginTop: 6, color: "var(--color-accent-2-700)" }}>78</div>
+            <div style={{ fontFamily: "var(--font-heading)", fontSize: 21, marginTop: 6, color: "var(--color-accent-2-700)" }}>{portfolioTotals.avgTrust}</div>
           </div>
           <div className="card elev-sm" style={{ padding: "14px 16px" }}>
             <div style={{ fontSize: 10.5, textTransform: "uppercase", letterSpacing: "0.05em", color: "color-mix(in srgb, var(--color-text) 60%, transparent)" }}>Anomalies</div>
             <div style={{ fontFamily: "var(--font-heading)", fontSize: 21, marginTop: 6, color: "var(--color-accent-800)" }}>
-              2 open <span style={{ fontSize: 12, fontFamily: "var(--font-body)", fontWeight: 400, color: "color-mix(in srgb, var(--color-text) 55%, transparent)" }}>/ 5 resolved</span>
+              {portfolioTotals.openAnomalies} open
             </div>
           </div>
           <div className="card elev-sm" style={{ padding: "14px 16px" }}>
             <div style={{ fontSize: 10.5, textTransform: "uppercase", letterSpacing: "0.05em", color: "color-mix(in srgb, var(--color-text) 60%, transparent)" }}>Spend with evidence</div>
-            <div style={{ fontFamily: "var(--font-heading)", fontSize: 21, marginTop: 6 }}>96%</div>
+            <div style={{ fontFamily: "var(--font-heading)", fontSize: 21, marginTop: 6 }}>
+              {portfolio ? `${portfolio.avgEvidencedSpendPct}%` : "96%"}
+            </div>
           </div>
         </div>
 
@@ -335,24 +351,31 @@ export default function CsrDashboard() {
       {reportOpen && (
         <div className="dialog-backdrop" style={{ position: "fixed", inset: 0, zIndex: 50 }} onClick={() => setReportOpen(false)}>
           <div className="dialog" style={{ width: "min(480px,100%)" }} onClick={(e) => e.stopPropagation()}>
-            <h3 className="dialog-title">Board Report — August 2026</h3>
+            <h3 className="dialog-title">Board Report</h3>
             <div className="dialog-body">
-              <p style={{ margin: "0 0 10px" }}>This report will include:</p>
+              <p style={{ margin: "0 0 10px" }}>This report includes:</p>
               <ul style={{ margin: 0, paddingLeft: 18, display: "flex", flexDirection: "column", gap: 6 }}>
-                <li>Portfolio summary — 8 campaigns, ₹86,40,000 disbursed</li>
-                <li>Campaign-by-campaign breakdown with trust scores</li>
-                <li>2 open anomalies with current status</li>
-                <li>Funds-by-category and funds-by-region charts</li>
-                <li>Auditor sign-off page</li>
+                <li>
+                  Portfolio summary — {portfolioTotals.campaignCount} campaigns, {fmtINR(portfolioTotals.totalDisbursed)}{" "}
+                  disbursed
+                </li>
+                <li>Per-campaign spend disclosure (date, category, vendor, amount)</li>
+                <li>
+                  A verification appendix — every included donation/spend&apos;s transaction hash and Monad Explorer
+                  link, so every figure can be reproduced independently
+                </li>
               </ul>
             </div>
             <div className="dialog-actions">
               <button type="button" className="btn btn-secondary" onClick={() => setReportOpen(false)}>
                 Close
               </button>
-              <button type="button" className="btn btn-primary">
+              <a className="btn btn-primary" href={csrReportUrl("xlsx")}>
+                Download XLSX
+              </a>
+              <a className="btn btn-primary" href={csrReportUrl("pdf")}>
                 Download PDF
-              </button>
+              </a>
             </div>
           </div>
         </div>

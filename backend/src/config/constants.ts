@@ -18,21 +18,20 @@ export const AADHAAR_SHAPED_RE = /\b\d{4}\s?\d{4}\s?\d{4}\b/;
 export const PAN_SHAPED_RE = /\b[A-Z]{5}\d{4}[A-Z]\b/;
 
 // Trust score (LLD Section 8). The published formula has 5 weighted terms,
-// but 3 of them depend on systems that don't exist yet: reconciliationMatchPct
-// needs the MVP1+ bank reconciliation job, promiseAlignmentScore needs a
-// stored promised-category-split to compare against (only a promise *hash*
-// is on-chain today), and attestorDiversityScore needs a real attestor roles
-// table (the attestor allowlist is deliberately a flat address list until
-// MVP2+, see auth/attestorAllowlist.ts). Rather than fake those three, the
-// score is computed from only the two terms with real data, reweighted to
-// sum to 1 in the same ratio the LLD gives them (0.30:0.25 -> 6/11:5/11).
-// The other three are reported as `pending` alongside the score so nothing
-// is silently underclaimed -- HLD Section 8 requires the formula be
-// published, not just the number.
-export const TRUST_SCORE_WEIGHT_EVIDENCED_SPEND = 30 / 55;
-export const TRUST_SCORE_WEIGHT_DELIVERY_ATTESTED = 25 / 55;
-export const TRUST_SCORE_PENDING_TERMS = [
-  "reconciliationMatchPct",
-  "promiseAlignmentScore",
-  "attestorDiversityScore",
-] as const;
+// but 2 of them still depend on systems that don't exist yet:
+// promiseAlignmentScore needs a stored promised-category-split to compare
+// against (only a promise *hash* is on-chain today), and
+// attestorDiversityScore needs a real attestor roles table (the attestor
+// allowlist is deliberately a flat address list until MVP2+, see
+// auth/attestorAllowlist.ts). reconciliationMatchPct (issue #10) is now live,
+// backed by the bank reconciliation job (issue #5, src/jobs/reconciliationJob.ts).
+// Rather than fake the remaining two, the score is computed from only the
+// three terms with real data, reweighted to sum to 1 in the same ratio the
+// LLD gives them (0.30:0.25:0.20 -> 30/75:25/75:20/75). The other two are
+// reported as `pending` alongside the score so nothing is silently
+// underclaimed -- HLD Section 8 requires the formula be published, not just
+// the number.
+export const TRUST_SCORE_WEIGHT_EVIDENCED_SPEND = 30 / 75;
+export const TRUST_SCORE_WEIGHT_DELIVERY_ATTESTED = 25 / 75;
+export const TRUST_SCORE_WEIGHT_RECONCILIATION_MATCH = 20 / 75;
+export const TRUST_SCORE_PENDING_TERMS = ["promiseAlignmentScore", "attestorDiversityScore"] as const;

@@ -126,7 +126,16 @@ spendRouter.post("/api/campaigns/:id/spend", upload.single("evidenceFile"), asyn
       // Evidence is kept, not discarded: a rejected submission is retained
       // as proof of what was actually uploaded and by which operator
       // address, in case of a pattern of fraudulent submissions.
-      const { cid: rejectedCid } = saveEvidence(campaignId, file.buffer, file.mimetype);
+      let rejectedCid: string;
+      try {
+        ({ cid: rejectedCid } = await saveEvidence(campaignId, file.buffer, file.mimetype));
+      } catch (err: any) {
+        res.status(503).json({
+          error: "EVIDENCE_STORAGE_UNAVAILABLE",
+          detail: err?.message ?? "Could not store evidence",
+        });
+        return;
+      }
       await insertAiRejectedSpend({
         campaign_id: campaignId,
         vendor_ref_hash: vendorRefHash,
@@ -148,7 +157,16 @@ spendRouter.post("/api/campaigns/:id/spend", upload.single("evidenceFile"), asyn
       return;
     }
 
-    const { cid } = saveEvidence(campaignId, file.buffer, file.mimetype);
+    let cid: string;
+    try {
+      ({ cid } = await saveEvidence(campaignId, file.buffer, file.mimetype));
+    } catch (err: any) {
+      res.status(503).json({
+        error: "EVIDENCE_STORAGE_UNAVAILABLE",
+        detail: err?.message ?? "Could not store evidence",
+      });
+      return;
+    }
 
     const pendingSpendId = await insertPendingSpend({
       campaign_id: campaignId,
