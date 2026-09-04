@@ -5,13 +5,54 @@ import Link from "next/link";
 import TxModal from "@/components/TxModal";
 import Logo from "@/components/Logo";
 import HashChip from "@/components/HashChip";
-import { donateToCampaign } from "@/lib/api";
+import { createDonateOrder, donateToCampaign, getFeed, type ApiDonateOrderResponse } from "@/lib/api";
 import { explorerTxUrl, fmtINR, shortHash } from "@/lib/format";
 import type { CampaignDetail } from "@/lib/campaigns";
 
 const CHIP_AMOUNTS = [100, 500, 2000, 5000];
 
 type Beat = "amount" | "payment" | "receipt";
+
+// Real Razorpay integration (issue #6): the checkout script hosts its own
+// UPI QR/intent flow inside the modal it opens -- there's nothing for this
+// page to render itself. See src/routes/donate.ts's /donate/order for the
+// backend half.
+const RAZORPAY_CHECKOUT_SRC = "https://checkout.razorpay.com/v1/checkout.js";
+
+declare global {
+  interface Window {
+    Razorpay?: new (options: Record<string, unknown>) => {
+      open: () => void;
+      on: (event: string, handler: (response: unknown) => void) => void;
+    };
+  }
+}
+
+// Confirmation is asynchronous: Razorpay's checkout only tells us the payment
+// succeeded, not that attestDonation has landed on-chain yet (that happens
+// when Razorpay's webhook reaches POST /api/webhooks/upi). Poll the feed for
+// the matching donation instead of assuming success. Block timestamps
+// (feed items' `ts`) are seconds since epoch, not ms -- see
+// backend/src/indexer/listener.ts.
+const CONFIRMATION_POLL_INTERVAL_MS = 3000;
+const CONFIRMATION_POLL_TIMEOUT_MS = 60000;
+
+async function pollForDonationConfirmation(
+  campaignBackendId: number,
+  expectedAmountPaise: number,
+  sinceMs: number
+): Promise<string | null> {
+  const deadline = Date.now() + CONFIRMATION_POLL_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    const feed = await getFeed(campaignBackendId, 10);
+    const match = feed?.items.find(
+      (item) => item.type === "donation" && item.amountPaise === expectedAmountPaise && item.ts * 1000 >= sinceMs
+    );
+    if (match) return match.txHash;
+    await new Promise((resolve) => setTimeout(resolve, CONFIRMATION_POLL_INTERVAL_MS));
+  }
+  return null;
+}
 
 export default function DonateClient({ campaign }: { campaign: CampaignDetail }) {
   const customAmountId = useId();
@@ -22,6 +63,15 @@ export default function DonateClient({ campaign }: { campaign: CampaignDetail })
   const [modalOpen, setModalOpen] = useState(false);
   const [txHash, setTxHash] = useState<string | null>(null);
   const [payError, setPayError] = useState<string | null>(null);
+
+  // "unknown" while the order-creation probe is in flight; "unavailable"
+  // means this deployment has no Razorpay keys configured (or the backend
+  // is unreachable, e.g. local dev/E2E) -- falls back to the mocked
+  // "I've completed the payment" flow below rather than hard-failing.
+  const [pspStatus, setPspStatus] = useState<"unknown" | "unavailable" | "available">("unknown");
+  const [order, setOrder] = useState<ApiDonateOrderResponse | null>(null);
+  const [razorpayReady, setRazorpayReady] = useState(false);
+  const [confirming, setConfirming] = useState(false);
 
   const amount = selectedAmount || Number(customAmount) || 0;
   const amountDisplay = fmtINR(amount);
@@ -36,6 +86,86 @@ export default function DonateClient({ campaign }: { campaign: CampaignDetail })
     if (beat === "payment") paymentHeadingRef.current?.focus();
     if (beat === "receipt") receiptHeadingRef.current?.focus();
   }, [beat]);
+
+  // Probes for a real Razorpay order exactly once per payment attempt, when
+  // the payment beat is first entered. A 503/network failure here just means
+  // "no real PSP available" (unconfigured keys, or no backend in local
+  // dev/E2E) -- falls back to the mock flow rather than surfacing an error.
+  useEffect(() => {
+    if (beat !== "payment" || pspStatus !== "unknown" || campaign.backendId === undefined) return;
+    let cancelled = false;
+    const amountPaise = Math.round(amount * 100);
+    createDonateOrder(campaign.backendId, amountPaise).then((result) => {
+      if (cancelled) return;
+      if (result.ok) {
+        setOrder(result.data);
+        setPspStatus("available");
+      } else {
+        setPspStatus("unavailable");
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [beat, pspStatus, campaign.backendId, amount]);
+
+  useEffect(() => {
+    if (pspStatus !== "available") return;
+    if (typeof window !== "undefined" && window.Razorpay) {
+      setRazorpayReady(true);
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = RAZORPAY_CHECKOUT_SRC;
+    script.async = true;
+    script.onload = () => setRazorpayReady(true);
+    document.body.appendChild(script);
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, [pspStatus]);
+
+  const openRazorpayCheckout = () => {
+    if (!order || campaign.backendId === undefined || typeof window === "undefined" || !window.Razorpay) return;
+    setPayError(null);
+    const sinceMs = Date.now();
+    const rzp = new window.Razorpay({
+      key: order.keyId,
+      amount: order.amountPaise,
+      currency: order.currency,
+      order_id: order.orderId,
+      name: "RokdaRadar",
+      description: campaign.name,
+      handler: async () => {
+        setIsPaying(true);
+        setConfirming(true);
+        const backendId = campaign.backendId as number;
+        const confirmedTxHash = await pollForDonationConfirmation(backendId, order.amountPaise, sinceMs);
+        setConfirming(false);
+        setIsPaying(false);
+        if (confirmedTxHash) {
+          setTxHash(confirmedTxHash);
+          setBeat("receipt");
+        } else {
+          setPayError(
+            "Payment received! On-chain confirmation is taking longer than usual — check the campaign page shortly for your donation."
+          );
+        }
+      },
+    });
+    rzp.on("payment.failed", (response) => {
+      const description = (response as { error?: { description?: string } })?.error?.description;
+      setPayError(description || "Payment failed. Please try again.");
+    });
+    rzp.open();
+  };
+
+  // A stale order (created for a previous amount) must not be paid against --
+  // reset and let the probe effect above recreate it for the new amount.
+  useEffect(() => {
+    setPspStatus("unknown");
+    setOrder(null);
+  }, [amount]);
 
   const pickChip = (amt: number) => {
     setSelectedAmount(amt);
@@ -174,30 +304,35 @@ export default function DonateClient({ campaign }: { campaign: CampaignDetail })
               </h2>
               <div style={{ fontFamily: "var(--font-heading)", fontWeight: 400, fontSize: 38 }}>{amountDisplay}</div>
             </div>
-            <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
-              <div
-                style={{
-                  width: 180,
-                  height: 180,
-                  borderRadius: "var(--radius-lg)",
-                  background:
-                    "repeating-linear-gradient(45deg, var(--color-neutral-200), var(--color-neutral-200) 8px, var(--color-neutral-100) 8px, var(--color-neutral-100) 16px)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <span style={{ fontFamily: "ui-monospace,monospace", fontSize: 11, background: "var(--color-bg)", padding: "4px 10px", borderRadius: 999 }}>
-                  scan to pay · QR
-                </span>
-              </div>
-            </div>
-            <div style={{ display: "flex", justifyContent: "center", gap: 8, marginBottom: 22 }}>
-              <span className="tag tag-outline">UPI app 1</span>
-              <span className="tag tag-outline">UPI app 2</span>
-              <span className="tag tag-outline">Other UPI ID</span>
-            </div>
-            {beat === "payment" && isPaying && (
+            {pspStatus !== "available" && (
+              <>
+                <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
+                  <div
+                    style={{
+                      width: 180,
+                      height: 180,
+                      borderRadius: "var(--radius-lg)",
+                      background:
+                        "repeating-linear-gradient(45deg, var(--color-neutral-200), var(--color-neutral-200) 8px, var(--color-neutral-100) 8px, var(--color-neutral-100) 16px)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <span style={{ fontFamily: "ui-monospace,monospace", fontSize: 11, background: "var(--color-bg)", padding: "4px 10px", borderRadius: 999 }}>
+                      scan to pay · QR
+                    </span>
+                  </div>
+                </div>
+                <div style={{ display: "flex", justifyContent: "center", gap: 8, marginBottom: 22 }}>
+                  <span className="tag tag-outline">UPI app 1</span>
+                  <span className="tag tag-outline">UPI app 2</span>
+                  <span className="tag tag-outline">Other UPI ID</span>
+                </div>
+              </>
+            )}
+
+            {beat === "payment" && (isPaying || pspStatus === "unknown") && (
               <div role="status" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: 14 }}>
                 <span
                   aria-hidden="true"
@@ -212,20 +347,26 @@ export default function DonateClient({ campaign }: { campaign: CampaignDetail })
                   }}
                 />
                 <span style={{ fontSize: 14, color: "color-mix(in srgb, var(--color-text) 75%, transparent)" }}>
-                  Confirming on Monad…
+                  {confirming ? "Payment received — confirming on Monad…" : "Preparing secure payment…"}
                 </span>
               </div>
             )}
-            {beat === "payment" && !isPaying && (
+            {beat === "payment" && !isPaying && pspStatus !== "unknown" && (
               <>
                 {payError && (
                   <p style={{ fontSize: 13, color: "var(--color-accent-800)", margin: "0 0 12px", textAlign: "center" }}>
                     {payError}
                   </p>
                 )}
-                <button type="button" className="btn btn-primary btn-block" onClick={onPay}>
-                  I&rsquo;ve completed the payment
-                </button>
+                {pspStatus === "available" ? (
+                  <button type="button" className="btn btn-primary btn-block" disabled={!razorpayReady} onClick={openRazorpayCheckout}>
+                    Pay {amountDisplay} securely via Razorpay
+                  </button>
+                ) : (
+                  <button type="button" className="btn btn-primary btn-block" onClick={onPay}>
+                    I&rsquo;ve completed the payment
+                  </button>
+                )}
               </>
             )}
           </section>
