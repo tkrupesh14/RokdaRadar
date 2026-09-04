@@ -15,22 +15,27 @@ the code (not the docs' intent). Last updated 2026-08-21.
 | Intelligence/AI service | ✅ Done | `backend/src/ai/reportService.ts`, `guardrail.ts`, `cache.ts`, `promptBuilder.ts` — Anthropic/Gemini-backed, rate-limited `/refresh` |
 | Evidence storage | 🟡 Partial (by design) | `backend/src/evidence/storage.ts` — local filesystem + SHA-256 hash standing in for a real CID; code comments label this the intentional MVP0 tier, not real IPFS |
 
-### MVP 1+ — payment domain: mocked
+### MVP 1+ — payment domain: mocked, reconciliation live
 
 | Component | Status | Evidence |
 |---|---|---|
 | UPI PSP webhook | 🟡 Mocked, not a real PSP | `backend/src/routes/webhooks.ts` has full HMAC verification + idempotency + on-chain `attestDonation` call, but there's no Razorpay/Cashfree SDK — `backend/scripts/simulateUpiWebhook.ts` generates fixture events, `backend/README.md` calls it out explicitly |
-| Bank reconciliation job | ❌ Not started | No matches for "reconcil" anywhere in `backend/src` |
+| Bank reconciliation job | ✅ Done (CSV import, amount-based debit matching) | `backend/src/jobs/reconciliationJob.ts` + `backend/src/db/repositories/reconciliationRepo.ts` — manager-signed `POST /api/campaigns/:id/reconciliation/import` matches statement rows against donations/spends both directions (LLD §7.2), `npm run reconcile:nightly` re-runs matching for every active campaign. Credit rows match donations exactly by UTR hash; debit rows match spends by amount only, since `attestSpend` is still always called with `ethers.ZeroHash` for its UTR (see below) |
+
+**Known gap this doesn't fix:** spends still carry no real bank settlement UTR — `attestSpend` is always
+called with `ethers.ZeroHash` (`backend/src/routes/pendingSpends.ts`). Debit-side reconciliation is
+therefore amount-matched, not UTR-matched like the credit side. Wiring a real UTR into the spend-approval
+flow is its own follow-up.
 
 ### MVP 2 — trust score: partial, real for the wired campaign
 
-🟡 **Partial, by deliberate scope decision.** The published formula (LLD §8) has 5 weighted terms; 2 have
+🟡 **Partial, by deliberate scope decision.** The published formula (LLD §8) has 5 weighted terms; 3 have
 real backing data today and are computed server-side (`backend/src/indexer/aggregate.ts`):
-`evidencedSpendPct` (30/55 weight) and `deliveryAttestedPct` (25/55 weight), reweighted to sum to 1 in
-the LLD's original ratio. The other 3 (`reconciliationMatchPct`, `promiseAlignmentScore`,
-`attestorDiversityScore`) need infrastructure that doesn't exist yet — the bank reconciliation job (next
-item below), a stored promised-category-split, and a real attestor roles table respectively — and are
-reported as `pending` in the API response (`trustScoreBreakdown.pending`) rather than faked.
+`evidencedSpendPct` (30/75 weight), `deliveryAttestedPct` (25/75 weight), and `reconciliationMatchPct`
+(20/75 weight, now live off the bank reconciliation job above), reweighted to sum to 1 in the LLD's
+original ratio. The other 2 (`promiseAlignmentScore`, `attestorDiversityScore`) need infrastructure that
+doesn't exist yet — a stored promised-category-split and a real attestor roles table respectively — and
+are reported as `pending` in the API response (`trustScoreBreakdown.pending`) rather than faked.
 
 For campaigns with a real `backendId`, `frontend/lib/mergeCampaign.ts` now overlays the real
 `trustScore` + `trustScoreBreakdown`, and the campaign page's trust-score ring shows an "i" affordance
@@ -83,18 +88,17 @@ a misleading claim.
 ## What's next (suggested priority order)
 
 1. ~~**MVP 2 — Trust score formula.**~~ ✅ Done (partial, see above) — `evidencedSpendPct` +
-   `deliveryAttestedPct` now compute a real, reweighted trust score with the methodology published
-   in-product; the other 3 terms are explicitly `pending`.
-2. **MVP 1+ — Bank reconciliation job.** Now the top priority: needed for its own sake and to unblock
-   the `reconciliationMatchPct` term so the trust score can grow toward the full 5-term formula. The UPI
-   webhook side is already solid; this is the missing nightly job (LLD §7.2).
+   `deliveryAttestedPct` + `reconciliationMatchPct` now compute a real, reweighted trust score with the
+   methodology published in-product; the other 2 terms are explicitly `pending`.
+2. ~~**MVP 1+ — Bank reconciliation job.**~~ ✅ Done (see above) — CSV import + amount-based debit
+   matching; a real settlement-UTR-on-spend flow would sharpen the debit side but isn't blocking.
 3. **MVP 3 — Real CSR data + export endpoint.** Extend backend aggregate/report endpoints to cover CSR
    portfolios beyond the single wired campaign, then build the `GET /api/csr/:companyId/report` PDF/XLSX
    export the LLD specifies (§9) — currently entirely missing.
 4. **Evidence storage upgrade.** Move off local-filesystem+hash to real IPFS or S3-compatible storage —
    low urgency functionally, but a real gap versus the "immutable evidence" story.
 5. **MVP 1 — Real UPI PSP integration.** Swap the mocked webhook for a real Razorpay/Cashfree
-   integration — bigger lift (compliance, live money), reasonable to defer until the proof-side (2–4
+   integration — bigger lift (compliance, live money), reasonable to defer until the proof-side (3–4
    above) is solid.
 6. **MVP 4 — Network intelligence.** Correctly last: the LLD itself says not to build this until there's
    a real MVP3 dataset to validate collusion thresholds against.

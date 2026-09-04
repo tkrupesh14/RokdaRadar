@@ -528,7 +528,7 @@ function TrustInfoDialog({ breakdown, onClose }: { breakdown: TrustScoreBreakdow
         <div className="dialog-body" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <p style={{ margin: 0 }}>
             Computed server-side from on-chain data, never by AI. The published formula has 5 weighted
-            factors; 2 are live today:
+            factors; 3 are live today:
           </p>
           <p style={{ margin: 0 }}>
             <b>{Math.round(breakdown.weights.evidencedSpendPct * 100)}%</b> weight —
@@ -538,10 +538,15 @@ function TrustInfoDialog({ breakdown, onClose }: { breakdown: TrustScoreBreakdow
             <b>{Math.round(breakdown.weights.deliveryAttestedPct * 100)}%</b> weight —
             spend with an independent delivery attestation: <b>{breakdown.deliveryAttestedPct}%</b>
           </p>
+          <p style={{ margin: 0 }}>
+            <b>{Math.round(breakdown.weights.reconciliationMatchPct * 100)}%</b> weight —
+            donations/spends matched against the campaign's bank statement:{" "}
+            <b>{breakdown.reconciliationMatchPct}%</b>
+          </p>
           <p style={{ margin: 0, fontSize: 12.5, opacity: 0.75 }}>
-            Bank reconciliation, promise-alignment, and attestor-diversity checks are being built next and
-            will be added to this score as they ship — this score reflects only what&apos;s verifiable
-            today, not a final rating.
+            Promise-alignment and attestor-diversity checks are being built next and will be added to
+            this score as they ship — this score reflects only what&apos;s verifiable today, not a
+            final rating.
           </p>
         </div>
         <div className="dialog-actions">

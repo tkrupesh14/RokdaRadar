@@ -14,6 +14,7 @@ import { spendRouter } from "./routes/spend.js";
 import { deliveryRouter } from "./routes/delivery.js";
 import { reportRouter } from "./routes/report.js";
 import { pendingSpendsRouter } from "./routes/pendingSpends.js";
+import { reconciliationRouter } from "./routes/reconciliation.js";
 
 export function createApp() {
   const app = express();
@@ -40,6 +41,7 @@ export function createApp() {
   app.use(deliveryRouter);
   app.use(reportRouter);
   app.use(pendingSpendsRouter);
+  app.use(reconciliationRouter);
 
   app.use(errorHandler);
 

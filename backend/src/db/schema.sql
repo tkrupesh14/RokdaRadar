@@ -96,3 +96,26 @@ CREATE TABLE IF NOT EXISTS pending_spends (
 );
 
 CREATE INDEX IF NOT EXISTS idx_pending_spends_campaign_status ON pending_spends(campaign_id, status);
+
+-- Bank reconciliation (LLD Section 7.2, MVP1+): a campaign manager imports a
+-- bank statement (CSV) and each line is matched against on-chain donations/
+-- spends, in both directions. Credit lines match donations exactly by
+-- utr_hash (donations always carry a real one). Debit lines are matched
+-- against spends by amount_paise instead -- spends don't carry a real bank
+-- UTR yet (attestSpend is always called with ethers.ZeroHash today; wiring a
+-- real settlement UTR into the spend-approval flow is its own follow-up), so
+-- exact amount matching is the best available signal for now. See
+-- src/jobs/reconciliationJob.ts.
+CREATE TABLE IF NOT EXISTS bank_statement_lines (
+    id SERIAL PRIMARY KEY,
+    campaign_id INTEGER NOT NULL REFERENCES campaigns(id),
+    direction TEXT NOT NULL CHECK (direction IN ('credit', 'debit')),
+    utr_hash TEXT,
+    amount_paise BIGINT NOT NULL,
+    txn_date TEXT NOT NULL,
+    imported_at BIGINT NOT NULL,
+    matched_donation_id INTEGER REFERENCES donations(id),
+    matched_spend_ref TEXT REFERENCES spends(spend_ref)
+);
+
+CREATE INDEX IF NOT EXISTS idx_bank_lines_campaign ON bank_statement_lines(campaign_id);
