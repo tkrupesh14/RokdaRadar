@@ -98,6 +98,15 @@ describe("ReliefTraceIN", () => {
     ).to.be.revertedWith("not operator");
   });
 
+  it("reverts createCampaign with the zero address as oracle", async () => {
+    const { contract, operator } = await deployFixture();
+    const promiseHash = ethers.keccak256(ethers.toUtf8Bytes("help wayanad"));
+
+    await expect(
+      contract.connect(operator).createCampaign(ethers.ZeroAddress, "KL-WAYANAD-2026-07", "DARPAN123", "80G456", promiseHash)
+    ).to.be.revertedWith("oracle required");
+  });
+
   it("reverts closeCampaign from non-operator with 'not operator'", async () => {
     const { contract, operator, oracle, other } = await deployFixture();
     const id = await createCampaign(contract, operator, oracle);

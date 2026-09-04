@@ -15,6 +15,23 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) to see the donor-facing landing page.
 
+## Testing
+
+Smoke-level E2E coverage for the critical flows (donate, operator wallet-connect + spend recording,
+CSR report viewing) lives in `e2e/` and runs on [Playwright](https://playwright.dev). Every test mocks
+its own backend responses via `page.route()`, so this needs no database, chain, or running backend —
+just this frontend, which the Playwright config starts itself.
+
+```bash
+npx playwright install --with-deps chromium   # first time only
+npm run test:e2e
+```
+
+`e2e/operator.spec.ts` and `e2e/walletconnect.spec.ts` cover wallet connection: the former mocks an
+injected `window.ethereum` (the desktop/MetaMask path), the latter runs under a mobile viewport with no
+injected provider to smoke-test the WalletConnect fallback in `lib/wallet.ts` without attempting a real
+pairing (that needs an actual wallet app scanning a QR code, which no CI environment can do).
+
 ## Pages
 
 | Route | Purpose | Linked from |
