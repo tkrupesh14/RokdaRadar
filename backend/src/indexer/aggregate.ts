@@ -13,9 +13,11 @@ import {
   TRUST_SCORE_PENDING_TERMS,
   TRUST_SCORE_WEIGHT_DELIVERY_ATTESTED,
   TRUST_SCORE_WEIGHT_EVIDENCED_SPEND,
+  TRUST_SCORE_WEIGHT_RECONCILIATION_MATCH,
   type CategoryName,
 } from "../config/constants.js";
 import { runAnomalyRules } from "./anomalyRules.js";
+import { reconciliationMatchPct as getReconciliationMatchPct } from "../db/repositories/reconciliationRepo.js";
 import type { CampaignAggregate, VendorConcentrationEntry } from "../types/domain.js";
 
 function median(values: number[]): number {
@@ -74,15 +76,21 @@ export async function computeAggregate(campaignId: number): Promise<CampaignAggr
   const evidencedPaise = await evidencedSpendPaise(campaignId);
   const evidencedSpendPct = spentPaise > 0 ? Number(((evidencedPaise / spentPaise) * 100).toFixed(1)) : 0;
 
+  const reconciliationMatchPct = await getReconciliationMatchPct(campaignId);
+
   const trustScore = Math.round(
-    TRUST_SCORE_WEIGHT_EVIDENCED_SPEND * evidencedSpendPct + TRUST_SCORE_WEIGHT_DELIVERY_ATTESTED * deliveryAttestedPct
+    TRUST_SCORE_WEIGHT_EVIDENCED_SPEND * evidencedSpendPct +
+      TRUST_SCORE_WEIGHT_DELIVERY_ATTESTED * deliveryAttestedPct +
+      TRUST_SCORE_WEIGHT_RECONCILIATION_MATCH * reconciliationMatchPct
   );
   const trustScoreBreakdown = {
     evidencedSpendPct,
     deliveryAttestedPct,
+    reconciliationMatchPct,
     weights: {
       evidencedSpendPct: Number(TRUST_SCORE_WEIGHT_EVIDENCED_SPEND.toFixed(4)),
       deliveryAttestedPct: Number(TRUST_SCORE_WEIGHT_DELIVERY_ATTESTED.toFixed(4)),
+      reconciliationMatchPct: Number(TRUST_SCORE_WEIGHT_RECONCILIATION_MATCH.toFixed(4)),
     },
     pending: TRUST_SCORE_PENDING_TERMS,
   };
@@ -112,6 +120,7 @@ export async function computeAggregate(campaignId: number): Promise<CampaignAggr
     medianDisbursementLatencyHours,
     evidencedSpendPct,
     deliveryAttestedPct,
+    reconciliationMatchPct,
     trustScore,
     trustScoreBreakdown,
     anomalyCandidates,

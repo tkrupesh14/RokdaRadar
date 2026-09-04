@@ -46,6 +46,36 @@ export type DeliveryAttestationRow = {
   tx_hash: string;
 };
 
+export type BankStatementLineRow = {
+  id: number;
+  campaign_id: number;
+  direction: "credit" | "debit";
+  utr_hash: string | null;
+  amount_paise: number;
+  txn_date: string;
+  imported_at: number;
+  matched_donation_id: number | null;
+  matched_spend_ref: string | null;
+};
+
+export type ReconciliationFlag = {
+  direction: "credit" | "debit";
+  reason: "unattested_inbound" | "unattested_outbound" | "unbacked_donation" | "unbacked_spend";
+  amountPaise: number;
+  ref: string; // statement line id, donation id, or spend_ref, stringified
+};
+
+export type ReconciliationSummary = {
+  campaignId: number;
+  statementLineCount: number;
+  matchedDonationCount: number;
+  totalDonationCount: number;
+  matchedSpendCount: number;
+  totalSpendCount: number;
+  reconciliationMatchPct: number;
+  flags: ReconciliationFlag[];
+};
+
 export type VendorConcentrationEntry = {
   vendorRef: string;
   sharePct: number;
@@ -58,12 +88,13 @@ export type AnomalyCandidate = {
   value: number | string;
 };
 
-// Partial-by-design: only the 2 of 5 LLD Section 8 terms with real backing
-// data are computed. See config/constants.ts's TRUST_SCORE_* comment.
+// Partial-by-design: only 3 of the 5 LLD Section 8 terms have real backing
+// data computed. See config/constants.ts's TRUST_SCORE_* comment.
 export type TrustScoreBreakdown = {
   evidencedSpendPct: number;
   deliveryAttestedPct: number;
-  weights: { evidencedSpendPct: number; deliveryAttestedPct: number };
+  reconciliationMatchPct: number;
+  weights: { evidencedSpendPct: number; deliveryAttestedPct: number; reconciliationMatchPct: number };
   pending: readonly string[];
 };
 
@@ -82,6 +113,7 @@ export type CampaignAggregate = {
   medianDisbursementLatencyHours: number;
   evidencedSpendPct: number;
   deliveryAttestedPct: number;
+  reconciliationMatchPct: number;
   trustScore: number;
   trustScoreBreakdown: TrustScoreBreakdown;
   anomalyCandidates: AnomalyCandidate[];

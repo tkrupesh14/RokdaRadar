@@ -1,5 +1,8 @@
 "use client";
 
+import { useId } from "react";
+import { useModalA11y } from "@/lib/useModalA11y";
+
 type TxModalProps = {
   title?: string;
   rows: { label: string; value: string }[];
@@ -9,14 +12,25 @@ type TxModalProps = {
 };
 
 export default function TxModal({ title = "Transaction proof", rows, onClose, explorerUrl }: TxModalProps) {
+  const dialogRef = useModalA11y(onClose);
+  const titleId = useId();
+
   return (
     <div
       className="dialog-backdrop"
       style={{ position: "fixed", inset: 0, zIndex: 50 }}
       onClick={onClose}
     >
-      <div className="dialog" onClick={(e) => e.stopPropagation()}>
-        <h3 className="dialog-title">{title}</h3>
+      <div
+        className="dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        ref={dialogRef}
+        tabIndex={-1}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="dialog-title" id={titleId}>{title}</h3>
         <div className="dialog-body">
           {rows.map((r) => (
             <p key={r.label} style={{ margin: "0 0 8px" }}>

@@ -16,6 +16,6 @@ export async function freshTestDb(): Promise<void> {
     migrated = true;
   }
   await pool.query(
-    `TRUNCATE TABLE processed_events, delivery_attestations, pending_spends, spends, donations, campaigns, indexer_state RESTART IDENTITY CASCADE`
+    `TRUNCATE TABLE processed_events, delivery_attestations, pending_spends, bank_statement_lines, spends, donations, campaigns, indexer_state RESTART IDENTITY CASCADE`
   );
 }

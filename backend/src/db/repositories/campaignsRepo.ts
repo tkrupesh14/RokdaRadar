@@ -35,3 +35,8 @@ export async function listCampaigns(exec: Executor = getPool()): Promise<Campaig
   const result = await exec.query(`SELECT * FROM campaigns ORDER BY id`);
   return result.rows as CampaignRow[];
 }
+
+export async function listActiveCampaignIds(exec: Executor = getPool()): Promise<number[]> {
+  const result = await exec.query(`SELECT id FROM campaigns WHERE active = 1 ORDER BY id`);
+  return (result.rows as { id: number }[]).map((r) => r.id);
+}

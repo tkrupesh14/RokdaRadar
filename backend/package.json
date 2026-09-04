@@ -9,6 +9,7 @@
     "start": "node dist/index.js",
     "indexer:dev": "tsx watch src/indexer/runIndexer.ts",
     "db:migrate": "tsx src/db/migrate.ts",
+    "reconcile:nightly": "tsx src/jobs/reconciliationJob.ts",
     "contracts:compile": "cd contracts && npx hardhat compile",
     "contracts:test": "cd contracts && npx hardhat test",
     "contracts:deploy:testnet": "cd contracts && npx hardhat run scripts/deploy.ts --network monadTestnet",

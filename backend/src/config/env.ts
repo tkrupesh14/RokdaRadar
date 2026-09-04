@@ -16,6 +16,19 @@ const envSchema = z.object({
   // tests at all if this is unset or equals DATABASE_URL.
   TEST_DATABASE_URL: z.string().optional(),
   EVIDENCE_DIR: z.string().default("./evidence-store"),
+  // "local" (default) is the MVP0 tier: filesystem + SHA-256 hash standing
+  // in for a real CID -- fine for dev/demo, doesn't survive redeploys or
+  // horizontal scaling. "ipfs" is the real LLD Section 6 MVP1 tier: pins to
+  // Pinata (PINATA_JWT required). LLD Section 6 also asks for a redundant
+  // pin to a second provider (e.g. web3.storage) so evidence survives one
+  // provider's outage -- not implemented yet (see evidence/pinataClient.ts's
+  // comment on why: this integration couldn't be verified against a live
+  // account in the environment it was written in, and a second provider
+  // doubles that unverified surface for comparatively little benefit at
+  // MVP1 scale). Worth adding once the primary pin path is confirmed
+  // working against a real account.
+  EVIDENCE_STORAGE_BACKEND: z.enum(["local", "ipfs"]).default("local"),
+  PINATA_JWT: z.string().optional(),
 
   MONAD_TESTNET_RPC_URL: z.string().default("https://testnet-rpc.monad.xyz"),
   MONAD_TESTNET_CHAIN_ID: z.coerce.number().default(10143),
@@ -28,6 +41,23 @@ const envSchema = z.object({
   WEBHOOK_HMAC_SECRET: z.string().default("change-me-dev-secret"),
   ATTESTOR_ALLOWLIST: z.string().default(""),
   MANAGER_ALLOWLIST: z.string().default(""),
+
+  // Per-IP rate limits on public, chain-writing/abuse-prone endpoints. Both
+  // endpoints below trigger an on-chain attestDonation call, so an unbounded
+  // caller can burn oracle-wallet gas and DB/RPC capacity. Defaults are sized
+  // for real traffic, not the MVP0 demo (see area:security issue #19):
+  // donate is a real donor hitting "pay", so a human-scale cap is enough;
+  // webhook is called by a small, fixed set of PSP-side IPs so it can run
+  // hotter without the cap ever being felt by legitimate traffic.
+  RATE_LIMIT_DONATE_WINDOW_MS: z.coerce.number().default(60_000),
+  RATE_LIMIT_DONATE_MAX: z.coerce.number().default(10),
+  RATE_LIMIT_WEBHOOK_WINDOW_MS: z.coerce.number().default(60_000),
+  RATE_LIMIT_WEBHOOK_MAX: z.coerce.number().default(120),
+
+  // How long a processed webhook payment.id is remembered for idempotency
+  // dedup before it's pruned from memory. Bounds process memory under
+  // sustained real-world transaction volume (see issue #19).
+  WEBHOOK_IDEMPOTENCY_WINDOW_MS: z.coerce.number().default(24 * 60 * 60 * 1000),
 
   // AI_PROVIDER picks which model backs the report service. Left unset, it
   // auto-selects whichever key is present (GEMINI_API_KEY preferred, since
@@ -59,12 +89,48 @@ const envSchema = z.object({
 
 export type Env = z.infer<typeof envSchema>;
 
+const DEFAULT_WEBHOOK_HMAC_SECRET = "change-me-dev-secret";
+
+// Fails fast at boot rather than letting a demo-grade secret or a shared
+// admin/oracle key reach production silently -- see area:security issue
+// #18 (secrets and key management review). These are deliberately not
+// zod .refine() checks on the schema itself: they must only fire for
+// NODE_ENV=production, and zod validates before NODE_ENV is known to be
+// "production" vs "development"/"test".
+function assertProductionSecretsAreSafe(parsed: Env): void {
+  if (parsed.NODE_ENV !== "production") return;
+
+  const problems: string[] = [];
+  if (parsed.WEBHOOK_HMAC_SECRET === DEFAULT_WEBHOOK_HMAC_SECRET) {
+    problems.push("WEBHOOK_HMAC_SECRET is still the default dev placeholder -- set a unique production secret.");
+  }
+  if (parsed.OPERATOR_PRIVATE_KEY && !parsed.ORACLE_PRIVATE_KEY) {
+    problems.push(
+      "ORACLE_PRIVATE_KEY is unset, so the oracle role would silently fall back to OPERATOR_PRIVATE_KEY. " +
+        "Production must use a distinct key per role (operator: createCampaign/attestSpend/attestDelivery; " +
+        "oracle: attestDonation only) so a compromised oracle key can't be used for privileged operator actions."
+    );
+  }
+
+  if (problems.length > 0) {
+    throw new Error(`Unsafe production secrets configuration:\n- ${problems.join("\n- ")}`);
+  }
+}
+
 function loadEnv(): Env {
   const parsed = envSchema.safeParse(process.env);
   if (!parsed.success) {
     console.error("Invalid environment configuration:", parsed.error.flatten().fieldErrors);
     throw new Error("Invalid environment configuration");
   }
+  // Fail fast rather than silently keeping evidence on ephemeral local disk
+  // while the operator believes it's configured for durable IPFS storage --
+  // the whole point of issue #9 is that local storage doesn't survive
+  // redeploys, so silently falling back here would defeat it invisibly.
+  if (parsed.data.EVIDENCE_STORAGE_BACKEND === "ipfs" && !parsed.data.PINATA_JWT) {
+    throw new Error("EVIDENCE_STORAGE_BACKEND=ipfs requires PINATA_JWT to be set");
+  }
+  assertProductionSecretsAreSafe(parsed.data);
   return parsed.data;
 }
 

@@ -7,6 +7,10 @@ pragma solidity 0.8.24;
 ///         no transfer/send/call{value:}, and no ERC-20 reference anywhere in this file.
 ///         Every write is a hash-anchored attestation about money that already moved
 ///         through UPI/banking, off-chain.
+/// @dev Reentrancy: no function in this contract makes an external call (no
+///      `.call`, `.delegatecall`, or calls into another contract/interface),
+///      so there is no reentrancy surface to guard -- reviewed as part of
+///      issue #17's access-control/reentrancy pass.
 contract ReliefTraceIN {
     enum Category {
         FOOD,
@@ -85,6 +89,14 @@ contract ReliefTraceIN {
         string calldata reg80G,
         bytes32 promiseHash
     ) external returns (uint256 id) {
+        // msg.sender can never be the zero address for a real transaction, so
+        // onlyOperator/onlyOracle already reject calls against an
+        // uninitialized campaign correctly -- but a zero oracle address would
+        // pass validation here and then be permanently unattestable (no real
+        // sender can ever satisfy onlyOracle), silently bricking donation
+        // attestation for that campaign with no way to recover it.
+        require(oracle != address(0), "oracle required");
+
         id = campaignCount++;
         campaigns[id] = Campaign({
             operator: msg.sender,
