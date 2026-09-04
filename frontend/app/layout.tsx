@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Space_Grotesk, Inter, JetBrains_Mono } from "next/font/google";
+import CursorFollower from "@/components/ui/cursor-follower";
 import "./globals.css";
 
 // Space Grotesk for display: technical, slightly squared terminals that read
@@ -43,7 +44,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${spaceGrotesk.variable} ${inter.variable} ${jetBrainsMono.variable}`}
     >
-      <body>{children}</body>
+      <body>
+        {children}
+        {/* Self-disables on touch devices and under prefers-reduced-motion. */}
+        <CursorFollower />
+      </body>
     </html>
   );
 }

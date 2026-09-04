@@ -2,6 +2,7 @@ import Link from "next/link";
 import Nav from "@/components/Nav";
 import Footer from "@/components/Footer";
 import HeroCanvas from "@/components/hero/HeroCanvas";
+import SpotlightCard from "@/components/ui/spotlight-card";
 
 const FAQS = [
   {
@@ -207,7 +208,7 @@ export default function Home() {
                 className="reveal tilt-3d"
                 style={{ animationDelay: `${i * 60}ms` }}
               >
-                <div
+                <SpotlightCard
                   className="glass stat-orb"
                   style={{
                     borderRadius: 24,
@@ -217,8 +218,6 @@ export default function Home() {
                     flexDirection: "column",
                     justifyContent: "flex-end",
                     gap: 8,
-                    position: "relative",
-                    overflow: "hidden",
                   }}
                 >
                   <span
@@ -260,7 +259,7 @@ export default function Home() {
                   >
                     {s.label}
                   </p>
-                </div>
+                </SpotlightCard>
               </div>
             ))}
           </div>
@@ -285,7 +284,7 @@ export default function Home() {
           >
             {STEPS.map((step) => (
               <div key={step.n} className="reveal tilt-3d">
-                <article
+                <SpotlightCard
                   className="glass"
                   style={{
                     borderRadius: 26,
@@ -318,7 +317,7 @@ export default function Home() {
                   >
                     {step.body}
                   </p>
-                </article>
+                </SpotlightCard>
               </div>
             ))}
           </div>

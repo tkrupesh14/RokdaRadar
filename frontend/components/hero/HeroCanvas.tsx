@@ -12,7 +12,7 @@
 import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 
-const ProofOrbScene = dynamic(() => import("./ProofOrbScene"), {
+const GlobeScene = dynamic(() => import("./GlobeScene"), {
   ssr: false,
   loading: () => null,
 });
@@ -76,6 +76,20 @@ export default function HeroCanvas() {
     animate: true,
   });
   const [sceneVisible, setSceneVisible] = useState(false);
+
+  // Cursor position in -1..1, tracked on window rather than the canvas: the
+  // canvas is pointer-events:none so it never steals taps from the CTA, which
+  // also means it receives no pointer events of its own. Kept in a ref so
+  // moving the mouse drives the render loop without re-rendering React.
+  const cursor = useRef({ x: 0, y: 0 });
+  useEffect(() => {
+    const onMove = (e: PointerEvent) => {
+      cursor.current.x = (e.clientX / window.innerWidth) * 2 - 1;
+      cursor.current.y = (e.clientY / window.innerHeight) * 2 - 1;
+    };
+    window.addEventListener("pointermove", onMove, { passive: true });
+    return () => window.removeEventListener("pointermove", onMove);
+  }, []);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -148,7 +162,7 @@ export default function HeroCanvas() {
             transition: "opacity 900ms var(--ease-out)",
           }}
         >
-          <ProofOrbScene quality={scene.quality} animate={scene.animate} />
+          <GlobeScene quality={scene.quality} animate={scene.animate} cursor={cursor} />
         </div>
       )}
     </div>

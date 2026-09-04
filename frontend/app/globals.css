@@ -1,3 +1,19 @@
+/* Tailwind v4, imported WITHOUT Preflight.
+   Aceternity UI components are authored as Tailwind utility classes, so the
+   utilities have to exist -- but Preflight's global reset would strip the
+   margins, heading sizes and list styling that the design system below (and
+   every existing page) depends on, silently flattening the whole site.
+   Importing theme + utilities only, and skipping preflight.css, gives us the
+   utility classes with none of the reset.
+
+   Layer order matters twice over: utilities sit in a cascade layer, and
+   unlayered CSS always beats layered CSS, so the design system below wins any
+   direct conflict with a Tailwind utility. That is the intended precedence --
+   Aceternity components are guests here, not the house style. */
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
 /* RokdaRadar design system — "Neon Glass" dark theme.
    Cyber-fintech: near-black base, electric lime + cyan accents, frosted
    glass surfaces, mono type for money and hashes.
