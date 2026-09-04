@@ -203,6 +203,45 @@ export function csrReportUrl(format: "pdf" | "xlsx"): string {
   return `${API_BASE_URL}/api/csr/report?format=${format}`;
 }
 
+export type ApiDonateOrderResponse = {
+  orderId: string;
+  amountPaise: number;
+  currency: string;
+  keyId: string;
+  campaignId: number;
+};
+
+export type DonateOrderResult =
+  | { ok: true; data: ApiDonateOrderResponse }
+  | { ok: false; error: string; code?: string };
+
+// Real Razorpay order creation (issue #6). 503 with code PSP_NOT_CONFIGURED
+// means this deployment has no RAZORPAY_KEY_ID/SECRET set -- callers should
+// fall back to donateToCampaign()'s mocked flow, not treat it as a hard
+// error, same as an unreachable backend (also caught here as ok:false). A
+// hard timeout guards against a stalled connection leaving the donate page
+// stuck on "preparing payment" forever -- callers should fall back to the
+// mock flow on a timeout exactly like any other failure here.
+const DONATE_ORDER_TIMEOUT_MS = 8000;
+
+export async function createDonateOrder(id: number, amountPaise: number): Promise<DonateOrderResult> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/campaigns/${id}/donate/order`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ amountPaise }),
+      signal: AbortSignal.timeout(DONATE_ORDER_TIMEOUT_MS),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return { ok: false, error: body?.detail || body?.error || `Order creation failed (${res.status})`, code: body?.error };
+    }
+    return { ok: true, data: body as ApiDonateOrderResponse };
+  } catch {
+    return { ok: false, error: "Could not reach the backend. Is it running?" };
+  }
+}
+
 export type ApiDonateResponse = {
   paymentId: string;
   utr: string;
