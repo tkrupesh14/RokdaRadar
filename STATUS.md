@@ -13,7 +13,7 @@ the code (not the docs' intent). Last updated 2026-08-21.
 | Indexer | ✅ Done | `backend/src/db/schema.sql` (campaigns/donations/spends/delivery_attestations/processed_events tables), `backend/src/indexer/handlers.ts` + `listener.ts` with idempotent event processing |
 | API layer | ✅ Done | Real Express routes: `campaigns.ts`, `spend.ts`, `donate.ts`, `feed.ts`, `aggregate.ts`, `report.ts`, `pendingSpends.ts`, `delivery.ts`, `webhooks.ts`, OpenAPI docs at `/docs` |
 | Intelligence/AI service | ✅ Done | `backend/src/ai/reportService.ts`, `guardrail.ts`, `cache.ts`, `promptBuilder.ts` — Anthropic/Gemini-backed, rate-limited `/refresh` |
-| Evidence storage | 🟡 Partial (by design) | `backend/src/evidence/storage.ts` — local filesystem + SHA-256 hash standing in for a real CID; code comments label this the intentional MVP0 tier, not real IPFS |
+| Evidence storage | ✅ Done (real IPFS available, local remains the default) | `backend/src/evidence/storage.ts` — `EVIDENCE_STORAGE_BACKEND=ipfs` pins to Pinata (`backend/src/evidence/pinataClient.ts`) for a real, durable CID; `local` (default) keeps the filesystem+SHA-256 MVP0 tier for dev/demo. **Not verified against a live Pinata account** — no credentials were available in the environment this was built in; covered by tests that mock the Pinata HTTP call, not a real end-to-end pin. A redundant second-provider pin (LLD Section 6 asks for one) isn't implemented yet, for the same reason. |
 
 ### MVP 1+ — payment domain: mocked, reconciliation live
 
@@ -95,8 +95,9 @@ a misleading claim.
 3. **MVP 3 — Real CSR data + export endpoint.** Extend backend aggregate/report endpoints to cover CSR
    portfolios beyond the single wired campaign, then build the `GET /api/csr/:companyId/report` PDF/XLSX
    export the LLD specifies (§9) — currently entirely missing.
-4. **Evidence storage upgrade.** Move off local-filesystem+hash to real IPFS or S3-compatible storage —
-   low urgency functionally, but a real gap versus the "immutable evidence" story.
+4. ~~**Evidence storage upgrade.**~~ ✅ Done (see above) — real IPFS via Pinata available behind
+   `EVIDENCE_STORAGE_BACKEND=ipfs`, not yet verified against a live account, and no redundant second
+   provider yet.
 5. **MVP 1 — Real UPI PSP integration.** Swap the mocked webhook for a real Razorpay/Cashfree
    integration — bigger lift (compliance, live money), reasonable to defer until the proof-side (3–4
    above) is solid.
